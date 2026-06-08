@@ -21,6 +21,12 @@ export default function Register() {
   const [showOtp, setShowOtp] = useState(false);
   const [otpCode, setOtpCode] = useState("");
 
+  const getErrorMessage = (err) => {
+    if (!err) return "Unknown error";
+    if (typeof err === "string") return err;
+    return err.message || err.error_description || err.statusText || err.error || "Something went wrong";
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
@@ -33,7 +39,8 @@ export default function Register() {
       await db.auth.register({ email, password });
       setShowOtp(true);
     } catch (err) {
-      setError(err.message || "Registration failed");
+      console.error("Register error:", err);
+      setError(getErrorMessage(err) || "Registration failed");
     } finally {
       setLoading(false);
     }
@@ -49,7 +56,8 @@ export default function Register() {
       }
       window.location.href = "/";
     } catch (err) {
-      setError(err.message || "Invalid verification code");
+      console.error("OTP verification error:", err);
+      setError(getErrorMessage(err) || "Invalid verification code");
     } finally {
       setLoading(false);
     }
@@ -64,7 +72,8 @@ export default function Register() {
         description: "Check your email for the new code.",
       });
     } catch (err) {
-      setError(err.message || "Failed to resend code");
+      console.error("Resend code error:", err);
+      setError(getErrorMessage(err) || "Failed to resend code");
     }
   };
 

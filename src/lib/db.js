@@ -144,7 +144,7 @@ const db = {
       const { data, error } = await supabase.auth.verifyOtp({
         email,
         token: otpCode,
-        type: 'email',
+        type: 'signup',
       });
       if (error) throw error;
       return data?.session || data;
