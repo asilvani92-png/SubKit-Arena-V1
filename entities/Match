@@ -1,0 +1,131 @@
+{
+  "name": "Match",
+  "type": "object",
+  "properties": {
+    "home_user_id": {
+      "type": "string"
+    },
+    "away_user_id": {
+      "type": "string"
+    },
+    "home_user_name": {
+      "type": "string"
+    },
+    "away_user_name": {
+      "type": "string"
+    },
+    "home_collection_id": {
+      "type": "string",
+      "description": "UserCollection id for home team"
+    },
+    "away_collection_id": {
+      "type": "string"
+    },
+    "home_team_name": {
+      "type": "string"
+    },
+    "away_team_name": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "active",
+        "completed",
+        "abandoned"
+      ],
+      "default": "pending"
+    },
+    "current_turn": {
+      "type": "string",
+      "enum": [
+        "home",
+        "away"
+      ],
+      "default": "home"
+    },
+    "home_score": {
+      "type": "number",
+      "default": 0
+    },
+    "away_score": {
+      "type": "number",
+      "default": 0
+    },
+    "turn_number": {
+      "type": "number",
+      "default": 0
+    },
+    "max_turns": {
+      "type": "number",
+      "default": 90
+    },
+    "winner_user_id": {
+      "type": "string"
+    },
+    "board_state": {
+      "type": "object",
+      "description": "JSON snapshot of current pitch positions",
+      "properties": {
+        "home_positions": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "away_positions": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "ball_position": {
+          "type": "object"
+        }
+      }
+    },
+    "action_log": {
+      "type": "array",
+      "description": "History of all moves and clashes",
+      "items": {
+        "type": "object",
+        "properties": {
+          "turn": {
+            "type": "number"
+          },
+          "player": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string"
+          },
+          "from": {
+            "type": "object"
+          },
+          "to": {
+            "type": "object"
+          },
+          "result": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "home_boost_used": {
+      "type": "boolean",
+      "default": false
+    },
+    "away_boost_used": {
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "required": [
+    "home_user_id",
+    "away_user_id"
+  ]
+}

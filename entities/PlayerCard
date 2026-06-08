@@ -1,0 +1,78 @@
+{
+  "name": "PlayerCard",
+  "type": "object",
+  "description": "A player card within a user's collection slot \u2014 holds stats and identity",
+  "properties": {
+    "collection_id": {
+      "type": "string",
+      "description": "Parent UserCollection id"
+    },
+    "slot_index": {
+      "type": "number"
+    },
+    "player_name": {
+      "type": "string"
+    },
+    "position": {
+      "type": "string",
+      "enum": [
+        "Goalkeeper",
+        "Defender",
+        "Midfielder",
+        "Forward"
+      ]
+    },
+    "photo_url": {
+      "type": "string"
+    },
+    "stat_speed": {
+      "type": "number",
+      "description": "0-100",
+      "default": 50
+    },
+    "stat_shooting": {
+      "type": "number",
+      "description": "0-100",
+      "default": 50
+    },
+    "stat_passing": {
+      "type": "number",
+      "description": "0-100",
+      "default": 50
+    },
+    "stat_tackling": {
+      "type": "number",
+      "description": "0-100",
+      "default": 50
+    },
+    "stat_stamina": {
+      "type": "number",
+      "description": "0-100",
+      "default": 50
+    },
+    "stat_spin": {
+      "type": "number",
+      "description": "Subbuteo-specific: flick spin quality 0-100",
+      "default": 50
+    },
+    "stat_flick_accuracy": {
+      "type": "number",
+      "description": "Subbuteo-specific: flicking precision 0-100",
+      "default": 50
+    },
+    "stat_base_stability": {
+      "type": "number",
+      "description": "Subbuteo-specific: base weight/stability 0-100",
+      "default": 50
+    },
+    "overall_rating": {
+      "type": "number",
+      "description": "Computed overall 0-100"
+    }
+  },
+  "required": [
+    "collection_id",
+    "slot_index",
+    "position"
+  ]
+}

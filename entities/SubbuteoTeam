@@ -1,0 +1,93 @@
+{
+  "name": "SubbuteoTeam",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Team name"
+    },
+    "ref_number": {
+      "type": "string",
+      "description": "Official Subbuteo catalogue reference number"
+    },
+    "era": {
+      "type": "string",
+      "enum": [
+        "Heavyweight 1960s",
+        "Heavyweight 1970s",
+        "Lightweight 1970s",
+        "Lightweight 1980s",
+        "Lightweight 1990s",
+        "Modern 2000s",
+        "Modern 2010s",
+        "Modern 2020s",
+        "Special Edition",
+        "Unknown"
+      ],
+      "description": "Production era"
+    },
+    "country": {
+      "type": "string",
+      "description": "Country / nation the team represents"
+    },
+    "kit_description": {
+      "type": "string",
+      "description": "Brief description of the kit colours and style"
+    },
+    "player_count": {
+      "type": "number",
+      "description": "Number of outfield players + goalkeeper in this set",
+      "default": 11
+    },
+    "rarity": {
+      "type": "string",
+      "enum": [
+        "Common",
+        "Uncommon",
+        "Rare",
+        "Ultra Rare",
+        "Legend"
+      ],
+      "default": "Common",
+      "description": "Rarity tier"
+    },
+    "market_value_gbp": {
+      "type": "number",
+      "description": "Current estimated market value in GBP (used for in-game boost)"
+    },
+    "boost_modifier": {
+      "type": "number",
+      "description": "In-game power boost multiplier (1.0 = baseline, admin-set)",
+      "default": 1.0
+    },
+    "image_url": {
+      "type": "string",
+      "description": "Reference image of the team/kit"
+    },
+    "brand": {
+      "type": "string",
+      "enum": [
+        "Subbuteo",
+        "Zeugo",
+        "Astrobase",
+        "Newfooty",
+        "Top Spin",
+        "Other"
+      ],
+      "default": "Subbuteo"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Admin notes / provenance details"
+    },
+    "is_published": {
+      "type": "boolean",
+      "default": true,
+      "description": "Visible in the catalogue to users"
+    }
+  },
+  "required": [
+    "name",
+    "rarity"
+  ]
+}

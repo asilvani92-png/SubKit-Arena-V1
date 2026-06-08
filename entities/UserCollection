@@ -1,0 +1,71 @@
+{
+  "name": "UserCollection",
+  "type": "object",
+  "properties": {
+    "team_id": {
+      "type": "string",
+      "description": "Reference to SubbuteoTeam.id"
+    },
+    "team_name": {
+      "type": "string",
+      "description": "Cached team name for quick display"
+    },
+    "team_rarity": {
+      "type": "string",
+      "description": "Cached rarity tier"
+    },
+    "condition": {
+      "type": "string",
+      "enum": [
+        "Mint",
+        "Excellent",
+        "Good",
+        "Fair",
+        "Poor"
+      ],
+      "default": "Good"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "is_complete": {
+      "type": "boolean",
+      "default": false,
+      "description": "All player photos captured"
+    },
+    "player_slots": {
+      "type": "array",
+      "description": "Array of player slots with photo data",
+      "items": {
+        "type": "object",
+        "properties": {
+          "slot_index": {
+            "type": "number"
+          },
+          "position": {
+            "type": "string",
+            "enum": [
+              "Goalkeeper",
+              "Defender",
+              "Midfielder",
+              "Forward"
+            ]
+          },
+          "player_name": {
+            "type": "string"
+          },
+          "photo_url": {
+            "type": "string"
+          },
+          "photo_captured_at": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "required": [
+    "team_id",
+    "team_name"
+  ]
+}

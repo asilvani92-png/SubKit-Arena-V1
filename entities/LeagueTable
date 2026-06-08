@@ -1,0 +1,47 @@
+{
+  "name": "LeagueTable",
+  "type": "object",
+  "properties": {
+    "user_id": {
+      "type": "string"
+    },
+    "username": {
+      "type": "string"
+    },
+    "played": {
+      "type": "number",
+      "default": 0
+    },
+    "won": {
+      "type": "number",
+      "default": 0
+    },
+    "drawn": {
+      "type": "number",
+      "default": 0
+    },
+    "lost": {
+      "type": "number",
+      "default": 0
+    },
+    "goals_for": {
+      "type": "number",
+      "default": 0
+    },
+    "goals_against": {
+      "type": "number",
+      "default": 0
+    },
+    "points": {
+      "type": "number",
+      "default": 0
+    },
+    "season": {
+      "type": "string",
+      "default": "2025-26"
+    }
+  },
+  "required": [
+    "user_id"
+  ]
+}

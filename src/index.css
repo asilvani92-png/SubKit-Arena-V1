@@ -1,0 +1,182 @@
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Lato:wght@300;400;700&family=Playfair+Display:wght@700;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* SubKit colour palette */
+    --background: 138 35% 8%;
+    --foreground: 40 60% 92%;
+    --card: 138 30% 11%;
+    --card-foreground: 40 60% 92%;
+    --popover: 138 30% 11%;
+    --popover-foreground: 40 60% 92%;
+    --primary: 43 55% 53%;
+    --primary-foreground: 138 35% 8%;
+    --secondary: 138 25% 18%;
+    --secondary-foreground: 40 60% 92%;
+    --muted: 138 20% 15%;
+    --muted-foreground: 40 30% 60%;
+    --accent: 4 60% 47%;
+    --accent-foreground: 40 60% 92%;
+    --destructive: 4 72% 45%;
+    --destructive-foreground: 40 60% 92%;
+    --border: 138 20% 20%;
+    --input: 138 20% 16%;
+    --ring: 43 55% 53%;
+
+    /* Chart colours */
+    --chart-1: 43 55% 53%;
+    --chart-2: 138 50% 45%;
+    --chart-3: 4 60% 47%;
+    --chart-4: 200 70% 55%;
+    --chart-5: 270 60% 60%;
+
+    --radius: 0.5rem;
+
+    /* SubKit custom tokens */
+    --turf: 138 45% 12%;
+    --turf-light: 138 40% 16%;
+    --gold: 43 68% 52%;
+    --gold-light: 43 75% 65%;
+    --cream: 40 60% 92%;
+    --red-trim: 4 60% 47%;
+    --rare-shimmer: 43 90% 70%;
+
+    --font-heading: 'Oswald', ui-sans-serif, system-ui, sans-serif;
+    --font-body: 'Lato', ui-sans-serif, system-ui, sans-serif;
+    --font-display: 'Playfair Display', Georgia, serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+    --sidebar-background: 138 35% 7%;
+    --sidebar-foreground: 40 60% 85%;
+    --sidebar-primary: 43 55% 53%;
+    --sidebar-primary-foreground: 138 35% 8%;
+    --sidebar-accent: 138 25% 15%;
+    --sidebar-accent-foreground: 40 60% 92%;
+    --sidebar-border: 138 20% 16%;
+    --sidebar-ring: 43 55% 53%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground font-body;
+    /* Primary background: turf image if present in public/images/turf.jpg, otherwise fall back to turf stripes */
+    background-image: url('/images/turf.jpg'),
+      repeating-linear-gradient(
+        90deg,
+        transparent,
+        transparent 40px,
+        hsl(138 45% 10% / 0.3) 40px,
+        hsl(138 45% 10% / 0.3) 41px
+      ),
+      repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 40px,
+        hsl(138 45% 10% / 0.3) 40px,
+        hsl(138 45% 10% / 0.3) 41px
+      );
+    background-size: cover, auto, auto;
+    background-position: center center, 0 0, 0 0;
+    background-repeat: no-repeat, repeat, repeat;
+  }
+
+  h1, h2, h3 {
+    @apply font-heading;
+  }
+}
+
+/* Turf stripe effect */
+.turf-bg {
+  background-color: hsl(var(--turf));
+  background-image: repeating-linear-gradient(
+    0deg,
+    hsl(138 45% 14% / 0.5),
+    hsl(138 45% 14% / 0.5) 30px,
+    transparent 30px,
+    transparent 60px
+  );
+}
+
+/* Sticker card shimmer for rare cards */
+.shimmer-rare {
+  background: linear-gradient(
+    135deg,
+    hsl(var(--gold)) 0%,
+    hsl(var(--gold-light)) 40%,
+    hsl(var(--gold)) 60%,
+    hsl(var(--gold-light)) 100%
+  );
+  background-size: 200% 200%;
+  animation: shimmer 3s ease-in-out infinite;
+}
+
+.shimmer-legend {
+  background: linear-gradient(
+    135deg,
+    hsl(270 80% 60%) 0%,
+    hsl(200 90% 65%) 25%,
+    hsl(var(--gold-light)) 50%,
+    hsl(200 90% 65%) 75%,
+    hsl(270 80% 60%) 100%
+  );
+  background-size: 300% 300%;
+  animation: shimmer 2s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+/* Print styles */
+@media print {
+  body {
+    background: white !important;
+    background-image: none !important;
+  }
+  .no-print { display: none !important; }
+  .print-only { display: block !important; }
+  .sticker-sheet { page-break-inside: avoid; }
+}
+
+.print-only { display: none; }
+
+/* Sticker card vintage border */
+.sticker-card {
+  border: 3px solid hsl(var(--gold));
+  box-shadow:
+    0 0 0 1px hsl(var(--turf)),
+    0 0 0 3px hsl(var(--gold) / 0.3),
+    inset 0 0 20px hsl(138 40% 5% / 0.5);
+}
+
+/* Pitch grid */
+.pitch-cell {
+  border: 1px solid hsl(138 35% 20% / 0.4);
+  transition: all 0.15s ease;
+}
+
+.pitch-cell:hover {
+  background: hsl(var(--gold) / 0.08);
+  border-color: hsl(var(--gold) / 0.4);
+}
+
+.pitch-cell.valid-move {
+  background: hsl(var(--gold) / 0.15);
+  border-color: hsl(var(--gold) / 0.6);
+  cursor: pointer;
+}
+
+.pitch-cell.selected {
+  background: hsl(var(--gold) / 0.25);
+  border-color: hsl(var(--gold));
+}

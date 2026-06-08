@@ -1,0 +1,9 @@
+{
+  "name": "@subkit/game-engine",
+  "version": "0.1.0",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "node ./scripts/build.js"
+  }
+}
