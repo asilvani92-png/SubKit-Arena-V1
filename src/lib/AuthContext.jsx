@@ -40,6 +40,7 @@ export const AuthProvider = ({ children }) => {
         if (redirectError) {
           console.warn('Supabase redirect session error:', redirectError);
         } else if (redirectData?.session) {
+          console.log('Session established from redirect, cleaning URL');
           const cleanedUrl = new URL(window.location.href);
           cleanedUrl.searchParams.delete('access_token');
           cleanedUrl.searchParams.delete('refresh_token');
@@ -47,6 +48,9 @@ export const AuthProvider = ({ children }) => {
           cleanedUrl.searchParams.delete('expires_in');
           cleanedUrl.hash = '';
           window.history.replaceState({}, document.title, cleanedUrl.toString());
+          
+          // Wait a moment for the session to settle in Supabase's internal storage
+          await new Promise(resolve => setTimeout(resolve, 100));
         }
       }
 
