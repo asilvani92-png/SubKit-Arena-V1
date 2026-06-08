@@ -9,6 +9,29 @@ create table if not exists users (
   created_at timestamptz default now()
 );
 
+alter table if exists users enable row level security;
+
+create policy if not exists "Allow users to select their own profile"
+  on users
+  for select
+  using (auth.uid() = id);
+
+create policy if not exists "Allow users to select public profiles"
+  on users
+  for select
+  using (true);
+
+create policy if not exists "Allow users to insert their own profile"
+  on users
+  for insert
+  with check (auth.uid() = id);
+
+create policy if not exists "Allow users to update their own profile"
+  on users
+  for update
+  using (auth.uid() = id)
+  with check (auth.uid() = id);
+
 create table if not exists worlds (
   id uuid primary key default gen_random_uuid(),
   name text not null,
