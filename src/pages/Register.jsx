@@ -15,6 +15,7 @@ export default function Register() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
+  const [feedback, setFeedback] = useState("");
   const [loading, setLoading] = useState(false);
   const [confirmationSent, setConfirmationSent] = useState(false);
 
@@ -28,9 +29,16 @@ export default function Register() {
     return message;
   };
 
+  const isAlreadyRegisteredError = (err) => {
+    if (!err) return false;
+    const message = typeof err === "string" ? err : err.message || err.error_description || err.error || "";
+    return /already registered|already exists|already in use|email already registered|user already registered|user already exists/i.test(message);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    setFeedback("");
     if (password !== confirmPassword) {
       setError("Passwords do not match");
       return;
@@ -42,10 +50,22 @@ export default function Register() {
         window.location.href = "/";
         return;
       }
+      setFeedback("If this email was used previously, a confirmation link has been sent to it.");
       setConfirmationSent(true);
     } catch (err) {
       console.error("Register error:", err);
-      setError(getErrorMessage(err) || "Registration failed");
+      if (isAlreadyRegisteredError(err)) {
+        try {
+          await db.auth.resendOtp(email);
+          setFeedback("We found an existing signup and resent the confirmation email.");
+          setConfirmationSent(true);
+        } catch (resendErr) {
+          console.error("Resend after existing user error:", resendErr);
+          setError(getErrorMessage(resendErr) || "Unable to resend confirmation email for this address.");
+        }
+      } else {
+        setError(getErrorMessage(err) || "Registration failed");
+      }
     } finally {
       setLoading(false);
     }
@@ -67,11 +87,16 @@ export default function Register() {
             {error}
           </div>
         )}
+        {feedback && (
+          <div className="mb-4 p-3 rounded-lg bg-foreground/5 text-foreground text-sm">
+            {feedback}
+          </div>
+        )}
         <div className="mb-6 text-sm text-muted-foreground">
-          Open the email we sent and click the confirmation link to finish signing up. If the link does not work, refresh this page after confirming your email.
+          Open the email we sent and click the confirmation link to finish signing up. If you still don't receive it, use the button below to resend or try a different email address.
         </div>
         <Button
-          className="w-full h-12 font-medium"
+          className="w-full h-12 font-medium mb-3"
           onClick={() => window.location.reload()}
           disabled={loading}
         >
@@ -82,6 +107,34 @@ export default function Register() {
             </>
           ) : (
             "I clicked the email"
+          )}
+        </Button>
+        <Button
+          variant="outline"
+          className="w-full h-12 font-medium"
+          onClick={async () => {
+            setError("");
+            setFeedback("");
+            setLoading(true);
+            try {
+              await db.auth.resendOtp(email);
+              setFeedback("Confirmation email resent. Check your inbox or spam folder.");
+            } catch (resendErr) {
+              console.error("Manual resend error:", resendErr);
+              setError(getErrorMessage(resendErr) || "Unable to resend confirmation email.");
+            } finally {
+              setLoading(false);
+            }
+          }}
+          disabled={loading}
+        >
+          {loading ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Resending...
+            </>
+          ) : (
+            "Resend confirmation"
           )}
         </Button>
       </AuthLayout>
