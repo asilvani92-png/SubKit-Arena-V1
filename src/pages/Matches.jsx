@@ -1,19 +1,16 @@
+// @ts-nocheck
 import db from '../lib/db';
 
 import { useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
-import { Swords, Clock, Trophy, XCircle, Play, Zap, Flame } from 'lucide-react';
+import { Swords, Play, Zap, Flame } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import PitchGrid from '@/components/game/PitchGrid';
-import StatClash from '@/components/game/StatClash';
 import { toast } from 'sonner';
-
-const ACTION_LABELS = { pass: 'PASS', shoot: 'SHOOT', tackle: 'TACKLE', boost: 'BOOST' };
 
 function statusColor(status) {
   if (status === 'active') return 'text-green-400';
@@ -380,5 +377,6 @@ export default function Matches() {
         </DialogContent>
       </Dialog>
     </div>
+  </div>  
   );
 }
