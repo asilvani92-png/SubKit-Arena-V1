@@ -34,7 +34,9 @@ export const AuthProvider = ({ children }) => {
       setAuthError(null);
 
       if (typeof window !== 'undefined' && (window.location.search.includes('access_token') || window.location.hash.includes('access_token'))) {
+        console.log('Supabase redirect detected, calling getSessionFromUrl()');
         const { data: redirectData, error: redirectError } = await supabase.auth.getSessionFromUrl();
+        console.log('getSessionFromUrl result:', { redirectData, redirectError });
         if (redirectError) {
           console.warn('Supabase redirect session error:', redirectError);
         } else if (redirectData?.session) {
