@@ -107,7 +107,7 @@ export default function Home() {
           >
             <Link
               to={link}
-              className={`group flex flex-col gap-3 rounded-xl border ${bg} p-5 hover:brightness-110 transition-all duration-200`}
+              className={`group flex flex-col gap-3 rounded-xl border ${bg} bg-background/40 backdrop-blur-sm p-5 hover:brightness-110 transition-all duration-200`}
             >
               <div className="flex items-center justify-between">
                 <Icon className={`w-6 h-6 ${color}`} />
@@ -124,7 +124,7 @@ export default function Home() {
 
       {/* Rarity System */}
       <section className="max-w-3xl mx-auto px-4 pb-14">
-        <div className="border border-border/60 rounded-xl p-6 bg-card">
+        <div className="border border-border/60 rounded-xl p-6 bg-background/40 backdrop-blur-sm">
           <div className="flex items-center gap-2 mb-4">
             <Zap className="w-4 h-4 text-gold" />
             <h2 className="font-heading font-bold text-sm tracking-widest uppercase text-gold">Rarity Boost System</h2>
