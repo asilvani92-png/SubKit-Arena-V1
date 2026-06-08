@@ -97,13 +97,12 @@
 /* Turf stripe effect */
 .turf-bg {
   background-color: hsl(var(--turf));
-  background-image: repeating-linear-gradient(
-    0deg,
-    hsl(138 45% 14% / 0.5),
-    hsl(138 45% 14% / 0.5) 30px,
-    transparent 30px,
-    transparent 60px
-  );
+  background-image:
+    linear-gradient(hsl(138 45% 8% / 0.18), hsl(138 45% 8% / 0.18)),
+    url('/images/turf.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
 /* Sticker card shimmer for rare cards */
