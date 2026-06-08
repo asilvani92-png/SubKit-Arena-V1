@@ -33,7 +33,7 @@ export const AuthProvider = ({ children }) => {
       setIsLoadingAuth(true);
       setAuthError(null);
 
-      if (typeof window !== 'undefined' && window.location.search.includes('access_token')) {
+      if (typeof window !== 'undefined' && (window.location.search.includes('access_token') || window.location.hash.includes('access_token'))) {
         const { data: redirectData, error: redirectError } = await supabase.auth.getSessionFromUrl();
         if (redirectError) {
           console.warn('Supabase redirect session error:', redirectError);
@@ -43,6 +43,7 @@ export const AuthProvider = ({ children }) => {
           cleanedUrl.searchParams.delete('refresh_token');
           cleanedUrl.searchParams.delete('type');
           cleanedUrl.searchParams.delete('expires_in');
+          cleanedUrl.hash = '';
           window.history.replaceState({}, document.title, cleanedUrl.toString());
         }
       }
