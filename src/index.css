@@ -96,7 +96,7 @@
 
 /* Turf stripe effect */
 .turf-bg {
-  background: url('/images/turf.jpg') center top / cover no-repeat;
+  background: url('/images/turf.jpg') center center / cover no-repeat fixed;
 }
 
 /* Sticker card shimmer for rare cards */
