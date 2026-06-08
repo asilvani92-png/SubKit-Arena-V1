@@ -98,11 +98,11 @@
 .turf-bg {
   background-color: hsl(var(--turf));
   background-image:
-    linear-gradient(hsl(138 45% 8% / 0.18), hsl(138 45% 8% / 0.18)),
+    linear-gradient(rgba(10, 15, 10, 0.25), rgba(10, 15, 10, 0.75)),
     url('/images/turf.jpg');
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
+  background-size: cover, cover;
+  background-position: center center, center center;
+  background-repeat: no-repeat, no-repeat;
 }
 
 /* Sticker card shimmer for rare cards */

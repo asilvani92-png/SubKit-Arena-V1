@@ -30,7 +30,8 @@ const PublicRoutes = () => (
     <Route path="/register" element={<Register />} />
     <Route path="/forgot-password" element={<ForgotPassword />} />
     <Route path="/reset-password" element={<ResetPassword />} />
-    <Route path="/" element={<Navigate to="/login" replace />} />
+    <Route path="/" element={<Login />} />
+    <Route path="/auth/confirm" element={<Login />} />
     <Route path="*" element={<Navigate to="/login" replace />} />
   </Routes>
 );
