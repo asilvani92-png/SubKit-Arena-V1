@@ -19,9 +19,23 @@ import Admin from '@/pages/Admin';
 import GameArena from '@/pages/GameArena';
 import Worlds from '@/pages/Worlds';
 import FindMatch from '@/pages/FindMatch';
+import Login from '@/pages/Login';
+import Register from '@/pages/Register';
+import ForgotPassword from '@/pages/ForgotPassword';
+import ResetPassword from '@/pages/ResetPassword';
+
+const PublicRoutes = () => (
+  <Routes>
+    <Route path="/login" element={<Login />} />
+    <Route path="/register" element={<Register />} />
+    <Route path="/forgot-password" element={<ForgotPassword />} />
+    <Route path="/reset-password" element={<ResetPassword />} />
+    <Route path="*" element={<Navigate to="/login" replace />} />
+  </Routes>
+);
 
 const AuthenticatedApp = () => {
-  const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin, user } = useAuth();
+  const { isLoadingAuth, isLoadingPublicSettings, authError, isAuthenticated, user } = useAuth();
 
   if (isLoadingPublicSettings || isLoadingAuth) {
     return (
@@ -37,14 +51,19 @@ const AuthenticatedApp = () => {
   if (authError) {
     if (authError.type === 'user_not_registered') {
       return <UserNotRegisteredError />;
-    } else if (authError.type === 'auth_required') {
-      navigateToLogin();
-      return null;
     }
+  }
+
+  if (!isAuthenticated) {
+    return <PublicRoutes />;
   }
 
   return (
     <Routes>
+      <Route path="/login" element={<Navigate to="/" replace />} />
+      <Route path="/register" element={<Navigate to="/" replace />} />
+      <Route path="/forgot-password" element={<Navigate to="/" replace />} />
+      <Route path="/reset-password" element={<Navigate to="/" replace />} />
       <Route element={<AppLayout user={user} />}>
         <Route path="/" element={<Home />} />
         <Route path="/catalogue" element={<Catalogue />} />
