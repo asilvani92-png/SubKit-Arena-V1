@@ -170,10 +170,6 @@ const db = {
       return data;
     },
 
-    async setToken(accessToken) {
-      return { access_token: accessToken };
-    },
-
     redirectToLogin() {
       window.location.href = '/login';
     },

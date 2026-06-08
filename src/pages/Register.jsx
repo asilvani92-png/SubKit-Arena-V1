@@ -24,7 +24,11 @@ export default function Register() {
   const getErrorMessage = (err) => {
     if (!err) return "Unknown error";
     if (typeof err === "string") return err;
-    return err.message || err.error_description || err.statusText || err.error || "Something went wrong";
+    const message = err.message || err.error_description || err.statusText || err.error || "Something went wrong";
+    if (message.includes("Error sending confirmation email")) {
+      return "Unable to send confirmation email. Check your Supabase Auth email/SMTP settings and make sure email delivery is enabled.";
+    }
+    return message;
   };
 
   const handleSubmit = async (e) => {
@@ -50,10 +54,7 @@ export default function Register() {
     setError("");
     setLoading(true);
     try {
-      const result = await db.auth.verifyOtp({ email, otpCode });
-      if (result?.access_token) {
-        db.auth.setToken(result.access_token);
-      }
+      await db.auth.verifyOtp({ email, otpCode });
       window.location.href = "/";
     } catch (err) {
       console.error("OTP verification error:", err);
