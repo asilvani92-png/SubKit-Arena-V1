@@ -17,7 +17,7 @@ export default function Matches() {
     (async () => {
       try {
         const { data: cols } = await supabase
-          .from('UserCollection')
+          .from('collections')
           .select('*')
           .eq('user_id', user.id)
           .order('created_date', { ascending: false });
@@ -96,10 +96,10 @@ export default function Matches() {
       </div>
 
       {collections.length === 0 ? (
-        <div className="text-center py-16 border border-dashed border-border rounded-xl">
-          <Bot className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
-          <p className="font-heading text-muted-foreground mb-2">You need a verified team to play</p>
-          <p className="text-xs text-muted-foreground/60 mb-6">Add a Subbuteo team to your collection and complete the photo verification process.</p>
+        <div className="text-center py-16 border border-dashed border-border rounded-xl bg-card/80 backdrop-blur-sm">
+          <Bot className="w-12 h-12 text-gold/30 mx-auto mb-4" />
+          <p className="font-heading text-foreground mb-2">You need a verified team to play</p>
+          <p className="text-xs text-foreground/70 mb-6">Add a Subbuteo team to your collection and complete the photo verification process.</p>
           <button
             onClick={() => navigate('/catalogue')}
             className="px-4 py-2 bg-gold text-background font-heading text-xs tracking-widest rounded hover:bg-gold-light transition-colors"

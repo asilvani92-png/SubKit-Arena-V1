@@ -1,0 +1,37 @@
+{
+  "architecture": {
+    "frontend": "React + Vite + TailwindCSS",
+    "backend": "Supabase (PostgreSQL + Auth + Storage)",
+    "stateManagement": "React Context + TanStack Query",
+    "routing": "React Router v6"
+  },
+  "conventions": {
+    "api": "REST via Supabase client",
+    "auth": "Supabase Auth with OAuth and email/password",
+    "database": {
+      "tableNaming": "snake_case plural (matches, collections, users)",
+      "rls": "row level security enabled on all tables"
+    },
+    "components": "Functional components with hooks",
+    "styling": "TailwindCSS with custom tokens (--gold, --turf, --cream)"
+  },
+  "entities": {
+    "UserCollection": {
+      "table": "collections",
+      "fields": ["id", "user_id", "team_id", "team_name", "team_rarity", "condition", "is_complete", "is_verified", "player_slots"]
+    },
+    "Match": {
+      "table": "matches",
+      "fields": ["id", "home_user_id", "away_user_id", "home_collection_id", "away_collection_id", "home_team_name", "away_team_name", "match_type", "status", "is_ai_match"]
+    },
+    "FlickerClub": {
+      "table": "flicker_clubs",
+      "fields": ["user_id", "club_name", "elo_rating", "manager_xp", "wins", "draws", "losses"]
+    }
+  },
+  "gameEngine": {
+    "location": "packages/game-engine/src/index.js",
+    "exports": ["simulateFullMatch", "resolveTick", "applyUserAction", "applyShout"]
+  },
+  "lastUpdated": "2026-06-09"
+}

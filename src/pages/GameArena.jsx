@@ -36,8 +36,57 @@ export default function GameArena() {
 
   const engineRef = useRef(null);
   const intervalRef = useRef(null);
-  const awaitingTimerRef = useRef(null);
   const realtimeMgrRef = useRef(null);
+  const awaitingOpponent = matchState?.awaiting_opponent || false;
+
+  // Load match and teams on mount
+  useEffect(() => {
+    if (!matchId) return;
+    (async () => {
+      try {
+        // Load match
+        const { data: match, error: matchErr } = await supabase
+          .from('matches')
+          .select('*')
+          .eq('id', matchId)
+          .single();
+        if (matchErr) throw matchErr;
+        setMatchState(match);
+
+        // Load home team collection
+        if (match.home_collection_id) {
+          const { data: homeCollection } = await supabase
+            .from('collections')
+            .select('*, players:team_players(*)')
+            .eq('id', match.home_collection_id)
+            .single();
+          setHomeTeam(homeCollection);
+        }
+
+        // Load away team or use house team
+        if (match.away_collection_id) {
+          const { data: awayCollection } = await supabase
+            .from('collections')
+            .select('*, players:team_players(*)')
+            .eq('id', match.away_collection_id)
+            .single();
+          setAwayTeam(awayCollection);
+        } else if (match.away_team_name) {
+          // Find house team
+          const houseTeam = HOUSE_TEAMS.find(t => t.name === match.away_team_name) || HOUSE_TEAMS[0];
+          // Generate players for house team using same logic as generate-squad
+          const formation = match.away_formation || '4-4-2';
+          const players = generateHouseTeam(houseTeam, formation);
+          setAwayTeam({ ...houseTeam, players });
+        }
+      } catch (e) {
+        console.error(e);
+        setError(e.message || 'Failed to load match');
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [matchId]);
 
   // Start match
   const startMatch = useCallback(() => {
