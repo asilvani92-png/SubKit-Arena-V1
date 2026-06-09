@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+websockets
+numpy
+
+# gfootball and pygame are optional — only needed if you want the real GRF physics engine.
+# Install them separately on Linux/macOS with system SDL2/CMake/Boost headers:
+#   pip install gfootball pygame
+# The server runs in stub mode without them.

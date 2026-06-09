@@ -10,6 +10,8 @@ import CommentaryFeed from '@/components/game/CommentaryFeed';
 import ActionBar from '@/components/game/ActionBar';
 import MatchResult from '@/components/game/MatchResult';
 import { simulateFullMatch, applyShout, applyUserAction, applyHalfTimeTalk, generateCommentary } from '../../packages/game-engine/src/index.js';
+import { useGRFEngine } from '@/hooks/useGRFEngine';
+import { parseGRFObs } from '@/lib/parseGRFObs';
 import HOUSE_TEAMS from '@/data/house-teams.json';
 
 export default function GameArena() {
@@ -22,12 +24,12 @@ export default function GameArena() {
   const [matchState, setMatchState] = useState(null);
   const [homeTeam, setHomeTeam] = useState(null);
   const [awayTeam, setAwayTeam] = useState(null);
-  const [engineState, setEngineState] = useState(null);
   const [events, setEvents] = useState([]);
   const [speed, setSpeed] = useState('normal');
   const [showHalfTime, setShowHalfTime] = useState(false);
   const [showResult, setShowResult] = useState(false);
   const [paused, setPaused] = useState(true);
+  const [useGRF, setUseGRF] = useState(false);
 
   // Substitution state
   const [showSubModal, setShowSubModal] = useState(false);
@@ -44,7 +46,6 @@ export default function GameArena() {
     if (!matchId) return;
     (async () => {
       try {
-        // Load match
         const { data: match, error: matchErr } = await supabase
           .from('matches')
           .select('*')
@@ -53,7 +54,6 @@ export default function GameArena() {
         if (matchErr) throw matchErr;
         setMatchState(match);
 
-        // Load home team collection
         if (match.home_collection_id) {
           const { data: homeCollection } = await supabase
             .from('collections')
@@ -63,7 +63,6 @@ export default function GameArena() {
           setHomeTeam(homeCollection);
         }
 
-        // Load away team or use house team
         if (match.away_collection_id) {
           const { data: awayCollection } = await supabase
             .from('collections')
@@ -72,9 +71,7 @@ export default function GameArena() {
             .single();
           setAwayTeam(awayCollection);
         } else if (match.away_team_name) {
-          // Find house team
           const houseTeam = HOUSE_TEAMS.find(t => t.name === match.away_team_name) || HOUSE_TEAMS[0];
-          // Generate players for house team using same logic as generate-squad
           const formation = match.away_formation || '4-4-2';
           const players = generateHouseTeam(houseTeam, formation);
           setAwayTeam({ ...houseTeam, players });
@@ -88,10 +85,129 @@ export default function GameArena() {
     })();
   }, [matchId]);
 
-  // Start match
+  // Helper to generate house team players
+  function generateHouseTeam(houseTeam, formation) {
+    const basePlayers = houseTeam.players || [];
+    if (basePlayers.length >= 11) return basePlayers.slice(0, 11);
+    const names = ['GK','LB','CB','RB','LM','CM','RM','ST'];
+    return Array.from({ length: 11 }, (_, i) => ({
+      player_name: `${houseTeam.name} ${names[i] || `P${i}`}`,
+      specific_position: names[i] || 'CM',
+      overall_rating: 65 + Math.floor(Math.random() * 15),
+      ...(basePlayers[i] || {}),
+    }));
+  }
+
+  // GRF engine hook (used when GRF backend is available)
+  const matchConfig = {
+    scenario: '11_vs_11_stochastic',
+    representation: 'raw',
+    home_team: homeTeam ? { name: homeTeam.name || 'Home', ref: homeTeam.team_name } : {},
+    away_team: awayTeam ? { name: awayTeam.name || 'Away', ref: awayTeam.team_name } : {},
+    match_type: matchState?.match_type || 'friendly',
+    formation: matchState?.home_formation || '4-4-2',
+    tactic: matchState?.home_tactic || 'balanced',
+  };
+
+  const {
+    state: grfState,
+    obs,
+    commentary: grfCommentary,
+    connected: grfConnected,
+    ready: grfReady,
+    step: grfStep,
+    managerAction: grfManagerAction,
+    freePrompt: grfFreePrompt,
+    disconnect: grfDisconnect,
+  } = useGRFEngine(matchConfig);
+
+  // Parsed GRF observation for pitch renderer
+  const parsedObs = obs ? parseGRFObs(obs, 'raw') : null;
+
+  // Switch to GRF mode when connected
+  useEffect(() => {
+    if (grfConnected && grfReady && !useGRF) {
+      setUseGRF(true);
+      setPaused(false);
+    }
+    if (!grfConnected && useGRF) {
+      setUseGRF(false);
+    }
+  }, [grfConnected, grfReady, useGRF]);
+
+  // GRF game loop
+  useEffect(() => {
+    if (!useGRF || !grfReady || paused || showResult) return;
+
+    const tickIntervals = { slow: 800, normal: 500, fast: 250 };
+    const interval = tickIntervals[speed] || 500;
+
+    const tick = () => {
+      if (!grfReady) return;
+      grfStep(0);
+    };
+
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    intervalRef.current = setInterval(tick, interval);
+
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [useGRF, grfReady, paused, speed, showResult, grfStep]);
+
+  // Sync GRF commentary and state to local events
+  useEffect(() => {
+    if (!useGRF || !grfState) return;
+    if (grfCommentary && grfCommentary.length > 0) {
+      const newEvents = grfCommentary.map((text, i) => ({
+        minute: Math.floor(grfState.match_time || 0),
+        eventType: 'commentary',
+        commentary: text,
+        team: 'home',
+      }));
+      setEvents(prev => [...prev, ...newEvents]);
+    }
+    if (grfState) {
+      engineRef.current = {
+        ...engineRef.current,
+        home: { score: grfState.score?.[0] || 0 },
+        away: { score: grfState.score?.[1] || 0 },
+        minute: grfState.match_time || 0,
+        status: grfState.game_mode === 0 && grfState.match_time >= 90 ? 'completed' : 'active',
+        homeApRemaining: grfState.action_points,
+        possession: grfState.possession === 0 ? 'home' : 'away',
+        ballZone: grfState.ball_zone,
+        formation: grfState.formation,
+        tactic: grfState.tactic,
+      };
+    }
+  }, [useGRF, grfCommentary, grfState]);
+
+  // Handle GRF match over
+  useEffect(() => {
+    if (!useGRF || !grfState) return;
+    if (grfState.match_time >= 90 || grfState.game_mode === 0 && grfState.match_time > 0) {
+      const finalState = {
+        home: { score: grfState.score?.[0] || 0 },
+        away: { score: grfState.score?.[1] || 0 },
+        minute: 90,
+        status: 'completed',
+      };
+      setShowResult(true);
+      setPaused(true);
+      handleMatchComplete(finalState);
+    }
+  }, [useGRF, grfState?.match_time]);
+
+  // Start match (JS engine fallback)
   const startMatch = useCallback(() => {
     if (!homeTeam || !awayTeam) return;
     const isPvP = !matchState?.is_ai_match && matchState?.away_user_id && !awaitingOpponent;
+    
+    // Try GRF first
+    setUseGRF(true);
+    
+    // Also prepare JS engine as fallback
     const state = simulateFullMatch(
       homeTeam,
       awayTeam,
@@ -103,11 +219,8 @@ export default function GameArena() {
       Date.now() % 65536
     );
     engineRef.current = state;
-    setEngineState(state);
-    setEvents(state.events);
     setPaused(false);
 
-    // Start PvP realtime sync if applicable
     if (isPvP && user && matchState) {
       realtimeMgrRef.current = new RealtimeMatchManager(
         matchId,
@@ -120,24 +233,22 @@ export default function GameArena() {
       );
       realtimeMgrRef.current.start(engineRef.current);
     }
-  }, [homeTeam, awayTeam, matchState, awaitingOpponent, matchId, user]); 
+  }, [homeTeam, awayTeam, matchState, awaitingOpponent, matchId, user]);
 
   // Match completion handler
   const handleMatchComplete = useCallback(async (finalState) => {
     try {
-      // 1. Save match results to DB
+      const homeScore = finalState.home?.score || 0;
+      const awayScore = finalState.away?.score || 0;
+      
       await db.updateMatch(matchId, {
-        home_score: finalState.home?.score || 0,
-        away_score: finalState.away?.score || 0,
+        home_score: homeScore,
+        away_score: awayScore,
         status: 'completed',
         completed_at: new Date().toISOString(),
       });
 
-      // 2. Calculate XP and ELO changes
-      const homeScore = finalState.home?.score || 0;
-      const awayScore = finalState.away?.score || 0;
-      
-      let xpGain = 100; // Base XP for playing
+      let xpGain = 100;
       let eloChange = 0;
 
       if (homeScore > awayScore) {
@@ -151,11 +262,7 @@ export default function GameArena() {
         eloChange = 0;
       }
 
-      // 3. Update user's flicker club stats
       if (user?.id) {
-        // This is simplified; in a real app, we'd fetch current ELO first
-        // but for now, we'll just use upsert with the delta logic handled by a function or just simplistic addition
-        // Since we don't have a "increment" helper in db.js, we'll just do a simple update
         const { data: club } = await supabase
           .from('flicker_clubs')
           .select('*')
@@ -171,7 +278,6 @@ export default function GameArena() {
             losses: homeScore < awayScore ? (club.losses || 0) + 1 : (club.losses || 0),
           });
         } else {
-          // Create club if it doesn't exist
           await db.updateFlickerClub(user.id, {
             xp: xpGain,
             elo_rating: 1000 + eloChange,
@@ -186,12 +292,12 @@ export default function GameArena() {
     }
   }, [matchId, user]);
 
-  // Tick engine at set interval
+  // JS engine tick (fallback when GRF not available)
   useEffect(() => {
-    if (!engineState || paused || showResult) return;
-    
+    if (useGRF) return;
+    if (!engineRef.current || paused || showResult) return;
+
     if (speed === 'instant') {
-      // Instant mode: immediately jump to completion
       const finalState = { ...engineRef.current, status: 'completed', minute: 90 };
       setEngineState(finalState);
       setEvents([...finalState.events]);
@@ -208,7 +314,6 @@ export default function GameArena() {
       if (!engineRef.current) return;
       const state = engineRef.current;
 
-      // Check if match is done
       if (state.status === 'completed' || state.minute >= 90) {
         state.status = 'completed';
         setEngineState({ ...state });
@@ -218,7 +323,6 @@ export default function GameArena() {
         return;
       }
 
-      // Half time pause
       if (state.status === 'half_time') {
         setShowHalfTime(true);
         setPaused(true);
@@ -236,87 +340,146 @@ export default function GameArena() {
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [engineState, paused, speed, showResult, handleMatchComplete]);
+  }, [engineState, paused, speed, showResult, handleMatchComplete, useGRF]);
 
-  // Always render from full event set
-  const displayEvents = events;
+  // PvP sync for JS engine fallback
+  useEffect(() => {
+    if (useGRF || !engineState) return;
+    const isPvP = !matchState?.is_ai_match && matchState?.away_user_id && !awaitingOpponent;
+    if (!isPvP || !user || !matchState) return;
+
+    realtimeMgrRef.current = new RealtimeMatchManager(
+      matchId,
+      user.id,
+      (newState) => setEngineState(prev => ({ ...(prev || engineRef.current), ...newState })),
+      (ev, allEvts) => {
+        if (ev) setEvents(prev => [...prev, ev]);
+        if (allEvts) setEvents(allEvts);
+      }
+    );
+    realtimeMgrRef.current.start(engineRef.current);
+
+    return () => {
+      realtimeMgrRef.current?.cleanup();
+    };
+  }, [useGRF, engineState, matchState, awaitingOpponent, matchId, user]);
+
+  // Derived state for UI
+  const currentMinute = useGRF ? (grfState?.match_time || 0) : (engineState?.minute || 0);
+  const homeScore = useGRF ? (grfState?.score?.[0] || 0) : (engineState?.home?.score || 0);
+  const awayScore = useGRF ? (grfState?.score?.[1] || 0) : (engineState?.away?.score || 0);
+  const homeAP = useGRF ? (grfState?.action_points || 6) : (engineState?.home?.apRemaining || 6);
+  const possession = useGRF ? (grfState?.possession === 0 ? 'home' : 'away') : (engineState?.possession);
+  const activeShout = useGRF ? 'balanced' : (engineState?.home?.activeShout);
+  const subsUsed = useGRF ? 0 : (engineState?.home?.subsUsed || 0);
+
+  // Display events
+  const displayEvents = useGRF ? events : (engineState?.events || events);
 
   // Speed change
   const handleSpeedChange = (s) => { setSpeed(s); };
 
-  // User actions
+  // User actions (GRF or JS fallback)
   const handleShout = (shoutKey) => {
-    if (!engineRef.current) return;
-    const result = applyShout(engineRef.current, 'home', shoutKey);
-    if (result.success) {
-      engineRef.current.events.push({
-        minute: Math.floor(engineRef.current.minute),
-        eventType: 'user_action',
-        team: 'home',
-        commentary: `[USER ACTION] Tactical shout: ${shoutKey}`,
-        is_user_action: true,
-      });
-      setEngineState({ ...engineRef.current });
-      setEvents([...engineRef.current.events]);
+    if (useGRF && grfConnected) {
+      grfManagerAction('TACTICAL_SHOUT', { shout: shoutKey.toUpperCase() });
+    } else if (engineRef.current) {
+      const result = applyShout(engineRef.current, 'home', shoutKey);
+      if (result.success) {
+        engineRef.current.events.push({
+          minute: Math.floor(engineRef.current.minute),
+          eventType: 'user_action',
+          team: 'home',
+          commentary: `[USER ACTION] Tactical shout: ${shoutKey}`,
+          is_user_action: true,
+        });
+        setEngineState({ ...engineRef.current });
+        setEvents([...engineRef.current.events]);
+      }
     }
   };
 
   const handleAction = (actionKey) => {
-    if (!engineRef.current) return;
-    const result = applyUserAction(engineRef.current, 'home', actionKey);
-    if (result.success) {
-      engineRef.current.events.push({
-        minute: Math.floor(engineRef.current.minute),
-        eventType: 'user_action',
-        team: 'home',
-        commentary: `[USER ACTION] ${actionKey.replace(/_/g, ' ')}`,
-        is_user_action: true,
-      });
-      setEngineState({ ...engineRef.current });
-      setEvents([...engineRef.current.events]);
+    if (useGRF && grfConnected) {
+      const grfAction = actionKey === 'demand_shot' ? 'DEMAND_SHOT' :
+                        actionKey === 'killer_ball' ? 'KILLER_BALL' :
+                        actionKey === 'hard_tackle' ? 'HARD_TACKLE' :
+                        actionKey === 'all_out_attack' ? 'ALL_OUT_ATTACK' :
+                        actionKey === 'park_the_bus' ? 'PARK_THE_BUS' : null;
+      if (grfAction) grfManagerAction(grfAction);
+    } else if (engineRef.current) {
+      const result = applyUserAction(engineRef.current, 'home', actionKey);
+      if (result.success) {
+        engineRef.current.events.push({
+          minute: Math.floor(engineRef.current.minute),
+          eventType: 'user_action',
+          team: 'home',
+          commentary: `[USER ACTION] ${actionKey.replace(/_/g, ' ')}`,
+          is_user_action: true,
+        });
+        setEngineState({ ...engineRef.current });
+        setEvents([...engineRef.current.events]);
+      }
     }
   };
 
   const handleSubstitution = () => {
-    if (!engineRef.current || subOffIndex === null || subOnIndex === null) return;
-    
-    const result = applyUserAction(engineRef.current, 'home', 'substitution', {
-      offIndex: subOffIndex,
-      onIndex: subOnIndex
-    });
-
-    if (result.success) {
-      engineRef.current.events.push({
-        minute: Math.floor(engineRef.current.minute),
-        eventType: 'user_action',
-        team: 'home',
-        commentary: `[SUB] ${engineRef.current.home.players[subOnIndex]?.player_name} replaces ${engineRef.current.home.players[subOffIndex]?.player_name}`,
-        is_user_action: true,
-      });
-      setEngineState({ ...engineRef.current });
-      setEvents([...engineRef.current.events]);
+    if (useGRF && grfConnected) {
+      grfManagerAction('SUBSTITUTION', { out: subOffIndex, in: subOnIndex });
       setShowSubModal(false);
       setSubOffIndex(null);
       setSubOnIndex(null);
-    } else {
-      alert(result.error || 'Substitution failed');
+    } else if (engineRef.current && subOffIndex !== null && subOnIndex !== null) {
+      const result = applyUserAction(engineRef.current, 'home', 'substitution', {
+        offIndex: subOffIndex,
+        onIndex: subOnIndex
+      });
+      if (result.success) {
+        engineRef.current.events.push({
+          minute: Math.floor(engineRef.current.minute),
+          eventType: 'user_action',
+          team: 'home',
+          commentary: `[SUB] ${engineRef.current.home.players[subOnIndex]?.player_name} replaces ${engineRef.current.home.players[subOffIndex]?.player_name}`,
+          is_user_action: true,
+        });
+        setEngineState({ ...engineRef.current });
+        setEvents([...engineRef.current.events]);
+        setShowSubModal(false);
+        setSubOffIndex(null);
+        setSubOnIndex(null);
+      } else {
+        alert(result.error || 'Substitution failed');
+      }
     }
   };
 
   // Half time
   const handleHalfTimeContinue = (talkKey) => {
-    if (!engineRef.current) return;
-    if (talkKey) applyHalfTimeTalk(engineRef.current, 'home', talkKey);
-    engineRef.current.status = 'active';
-    engineRef.current.events.push({
-      minute: 45, eventType: 'kickoff', team: 'home',
-      commentary: generateCommentary('kickoff', null, null, null, '', 45),
-    });
-    setEngineState({ ...engineRef.current });
-    setEvents([...engineRef.current.events]);
-    setShowHalfTime(false);
-    setPaused(false);
+    if (useGRF && grfConnected) {
+      setShowHalfTime(false);
+      setPaused(false);
+    } else if (engineRef.current) {
+      if (talkKey) applyHalfTimeTalk(engineRef.current, 'home', talkKey);
+      engineRef.current.status = 'active';
+      engineRef.current.events.push({
+        minute: 45, eventType: 'kickoff', team: 'home',
+        commentary: generateCommentary('kickoff', null, null, null, '', 45),
+      });
+      setEngineState({ ...engineRef.current });
+      setEvents([...engineRef.current.events]);
+      setShowHalfTime(false);
+      setPaused(false);
+    }
   };
+
+  // Cleanup GRF on unmount
+  useEffect(() => {
+    return () => {
+      grfDisconnect();
+      realtimeMgrRef.current?.cleanup();
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [grfDisconnect]);
 
   if (loading) {
     return (
@@ -341,8 +504,18 @@ export default function GameArena() {
     );
   }
 
-  if (!engineState) {
-    // Pre-match screen
+  if (!homeTeam || !awayTeam) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <p className="font-heading text-gold">Setting up teams...</p>
+          <div className="w-8 h-8 border-2 border-gold/20 border-t-gold rounded-full animate-spin mx-auto" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!engineState && !useGRF) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-card border border-border rounded-2xl p-8 text-center space-y-6">
@@ -350,13 +523,13 @@ export default function GameArena() {
           <h2 className="font-heading text-xl font-bold text-gold tracking-widest uppercase">Match Day</h2>
           <div className="flex items-center justify-between gap-4">
             <div className="text-center">
-              <div className="w-12 h-12 rounded-full mx-auto border-2" style={{ backgroundColor: matchState?.home_team_name?.includes('AI') ? '#3b82f6' : '#3b82f6' }} />
-              <p className="font-heading text-xs mt-2">{matchState?.home_team_name || 'Home'}</p>
+              <div className="w-12 h-12 rounded-full mx-auto border-2" style={{ backgroundColor: homeTeam.primary_colour || '#3b82f6' }} />
+              <p className="font-heading text-xs mt-2">{homeTeam.name || 'Home'}</p>
             </div>
             <span className="font-heading text-lg text-muted-foreground">vs</span>
             <div className="text-center">
-              <div className="w-12 h-12 rounded-full mx-auto border-2" style={{ backgroundColor: '#ef4444' }} />
-              <p className="font-heading text-xs mt-2">{matchState?.away_team_name || 'Away'}</p>
+              <div className="w-12 h-12 rounded-full mx-auto border-2" style={{ backgroundColor: awayTeam.primary_colour || '#ef4444' }} />
+              <p className="font-heading text-xs mt-2">{awayTeam.name || 'Away'}</p>
             </div>
           </div>
           <p className="text-xs text-muted-foreground">
@@ -400,23 +573,20 @@ export default function GameArena() {
     );
   }
 
-  // Quarter of the match clock
-  const currentMinute = engineState.minute || 0;
-
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* HUD */}
       <MatchHUD
         homeTeam={homeTeam}
         awayTeam={awayTeam}
-        homeScore={engineState.home?.score || 0}
-        awayScore={engineState.away?.score || 0}
+        homeScore={homeScore}
+        awayScore={awayScore}
         currentMinute={currentMinute}
-        status={engineState.status}
+        status={useGRF ? (grfState?.match_time >= 90 ? 'completed' : 'active') : (engineState?.status)}
         speed={speed}
         onSpeedChange={handleSpeedChange}
-        homeAP={engineState.home?.apRemaining || 6}
-        awayAP={engineState.away?.apRemaining || 6}
+        homeAP={homeAP}
+        awayAP={6}
         isHome={true}
       />
 
@@ -430,6 +600,8 @@ export default function GameArena() {
               awayTeam={awayTeam}
               events={displayEvents}
               currentMinute={currentMinute}
+              grfObs={parsedObs}
+              useGRF={useGRF}
             />
           </div>
         </div>
@@ -441,17 +613,17 @@ export default function GameArena() {
       </div>
 
       {/* Action bar */}
-      {engineState.status === 'active' && (
+      {(useGRF ? grfState?.game_mode === 0 : engineState?.status === 'active') && (
         <div className="sticky bottom-0">
           <ActionBar
             teamKey="home"
             minute={currentMinute}
-            apRemaining={engineState.home?.apRemaining || 6}
-            possession={engineState.possession}
-            activeShout={engineState.home?.activeShout}
-            scoreDiff={(engineState.home?.score || 0) - (engineState.away?.score || 0)}
-            canSub={engineState.home?.subsUsed < 3}
-            subsUsed={engineState.home?.subsUsed || 0}
+            apRemaining={homeAP}
+            possession={possession}
+            activeShout={activeShout}
+            scoreDiff={homeScore - awayScore}
+            canSub={subsUsed < 3}
+            subsUsed={subsUsed}
             onShout={handleShout}
             onAction={handleAction}
             onSub={() => setShowSubModal(true)}
@@ -464,7 +636,7 @@ export default function GameArena() {
         <div className="fixed inset-0 bg-background/90 z-50 flex items-center justify-center p-4">
           <div className="bg-card border border-border rounded-2xl p-6 max-w-sm w-full text-center space-y-4">
             <h3 className="font-heading text-lg font-bold text-gold uppercase tracking-wider">Half Time</h3>
-            <p className="text-3xl font-black">{engineState.home?.score || 0} — {engineState.away?.score || 0}</p>
+            <p className="text-3xl font-black">{homeScore} — {awayScore}</p>
             <p className="text-xs text-muted-foreground">Choose a team talk for the second half:</p>
             <div className="space-y-2">
               {[
@@ -490,25 +662,13 @@ export default function GameArena() {
       {/* Result screen */}
       {showResult && (
         <MatchResult
-          matchState={engineState}
+          matchState={engineState || { home: { score: homeScore }, away: { score: awayScore }, minute: 90, status: 'completed' }}
           onRematch={() => {
             setEngineState(null);
             setEvents([]);
             setShowResult(false);
             setPaused(true);
-          }}
-          onClose={() => navigate('/matches')}
-        />
-      )}
-      {/* Result screen */}
-      {showResult && (
-        <MatchResult
-          matchState={engineState}
-          onRematch={() => {
-            setEngineState(null);
-            setEvents([]);
-            setShowResult(false);
-            setPaused(true);
+            setUseGRF(false);
           }}
           onClose={() => navigate('/matches')}
         />
@@ -521,11 +681,10 @@ export default function GameArena() {
             <h3 className="font-heading text-lg font-bold text-gold uppercase tracking-wider text-center">Substitution</h3>
             
             <div className="grid grid-cols-2 gap-4">
-              {/* Out Player */}
               <div className="space-y-2">
                 <p className="text-[10px] font-heading text-muted-foreground uppercase text-center">Player Out</p>
                 <div className="space-y-1 max-h-60 overflow-y-auto border border-border rounded-lg p-1">
-                  {homeTeam.players.slice(0, 11).map((p, i) => (
+                  {(homeTeam.players || []).slice(0, 11).map((p, i) => (
                     <button
                       key={i}
                       onClick={() => setSubOffIndex(i)}
@@ -537,11 +696,10 @@ export default function GameArena() {
                 </div>
               </div>
 
-              {/* In Player */}
               <div className="space-y-2">
                 <p className="text-[10px] font-heading text-muted-foreground uppercase text-center">Player In</p>
                 <div className="space-y-1 max-h-60 overflow-y-auto border border-border rounded-lg p-1">
-                  {homeTeam.players.slice(11).map((p, i) => (
+                  {(homeTeam.players || []).slice(11).map((p, i) => (
                     <button
                       key={i + 11}
                       onClick={() => setSubOnIndex(i + 11)}

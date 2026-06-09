@@ -1,3 +1,8 @@
+---
+name: tester
+description: Test creation and execution agent. Writes unit, integration, and end-to-end tests. specialises in validating code and identifying gaps.
+---
+
 # Tester Agent
 
 Specializes in test creation and execution.

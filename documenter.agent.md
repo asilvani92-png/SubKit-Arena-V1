@@ -1,3 +1,8 @@
+---
+name: documenter
+description: Documentation generation and updates agent. Keeps docs in sync with code changes and creates user-facing guides.
+---
+
 # Documenter Agent
 
 Specializes in documentation generation and updates.

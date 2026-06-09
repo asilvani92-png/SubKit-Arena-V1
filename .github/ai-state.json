@@ -1,19 +1,21 @@
 {
   "architecture": {
     "frontend": "React + Vite + TailwindCSS",
-    "backend": "Supabase (PostgreSQL + Auth + Storage)",
+    "backend": "Supabase (PostgreSQL + Auth + Storage) + GRF Python FastAPI",
     "stateManagement": "React Context + TanStack Query",
-    "routing": "React Router v6"
+    "routing": "React Router v6",
+    "gameEngine": "GRF (Google Research Football) via WebSocket with JS fallback"
   },
   "conventions": {
-    "api": "REST via Supabase client",
+    "api": "REST via Supabase client + WebSocket via GRF backend",
     "auth": "Supabase Auth with OAuth and email/password",
     "database": {
       "tableNaming": "snake_case plural (matches, collections, users)",
       "rls": "row level security enabled on all tables"
     },
     "components": "Functional components with hooks",
-    "styling": "TailwindCSS with custom tokens (--gold, --turf, --cream)"
+    "styling": "TailwindCSS with custom tokens (--gold, --turf, --cream)",
+    "gameLoop": "GRF runs server-side; client renders via parseGRFObs + MatchPitch canvas"
   },
   "entities": {
     "UserCollection": {
@@ -30,8 +32,27 @@
     }
   },
   "gameEngine": {
-    "location": "packages/game-engine/src/index.js",
-    "exports": ["simulateFullMatch", "resolveTick", "applyUserAction", "applyShout"]
+    "primary": {
+      "type": "GRF WebSocket",
+      "location": "grf-backend/server.py",
+      "hook": "src/hooks/useGRFEngine.js",
+      "parser": "src/lib/parseGRFObs.js",
+      "rules": "grf-backend/match_rules.py",
+      "wsEndpoint": "/env",
+      "port": 8765
+    },
+    "fallback": {
+      "type": "JS engine",
+      "location": "packages/game-engine/src/index.js",
+      "exports": ["simulateFullMatch", "resolveTick", "applyUserAction", "applyShout"]
+    },
+    "matchPage": "src/pages/GameArena.jsx",
+    "pitchRenderer": "src/components/game/MatchPitch.jsx"
+  },
+  "integration": {
+    "grfMerged": true,
+    "mergedAt": "2026-06-09",
+    "notes": "GRF backend integrated as primary engine with JS fallback. GameArena supports both modes via useGRF state flag."
   },
   "lastUpdated": "2026-06-09"
 }

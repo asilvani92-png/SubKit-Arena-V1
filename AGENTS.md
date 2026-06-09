@@ -5,8 +5,9 @@ This project uses a Coordinator-Subagent pattern for complex workflows. The coor
 ## Agents
 
 ### `/coordinator.agent.md` (Lead)
-- **Role**: Task orchestration and code review
+- **Role**: Task orchestration and architecture review
 - **Responsibilities**: Breakdown complex work, assign subtasks, verify outputs, maintain architectural consistency
+- **user-invocable**: `false` (invoked by the system, not directly by users)
 
 ### `/researcher.agent.md`
 - **Role**: Codebase exploration and API research
@@ -22,11 +23,14 @@ This project uses a Coordinator-Subagent pattern for complex workflows. The coor
 
 ## Handoff Rules
 
-- Security/authentication changes → security specialist (via handoff)
-- Database schema changes → migration handler (via handoff)
-- UI component work → coder agent
-- Game engine logic → coder agent
+| Scenario | Target Specialist | User-Invocable |
+|----------|------------------|----------------|
+| Security/authentication changes | security-specialist | `false` |
+| Database schema changes | migration-handler | `false` |
+| UI component work | coder agent | `true` |
+| Game engine logic | coder agent | `true` |
+| GRF backend / WebSocket integration | backend-specialist | `true` |
 
 ## Project State
 
-See `.github/ai-state.json` for persistent architectural decisions and conventions.
+See `.github/ai-state.json` for persistent architectural decisions, conventions, and integration notes.

@@ -22,19 +22,65 @@ function interpolatePos(from, to, t) {
   };
 }
 
-export default function MatchPitch({ homeTeam, awayTeam, events, currentMinute }) {
+export default function MatchPitch({ homeTeam, awayTeam, events, currentMinute, grfObs, useGRF }) {
   const canvasRef = useRef(null);
   const animRef = useRef(null);
   const lastEventRef = useRef(null);
   const ballAnimRef = useRef(null);
 
-  // Positions derived from the last few events
+  // Positions derived from GRF observations when available
   const getCurrentPositions = useCallback(() => {
-    // Default positions by formation
     const positions = { home: {}, away: {}, ball: { x: 50, y: 50 } };
+    
+    if (useGRF && grfObs) {
+      // Render from GRF raw coordinates
+      const W = 100;
+      const H = 100;
+      
+      // Ball
+      const bx = ((grfObs.ball.x + 1) / 2) * 100;
+      const by = ((grfObs.ball.y + 0.42) / 0.84) * 100;
+      positions.ball = { x: bx, y: by };
+      
+      // Home players (left team in GRF, rendered as home)
+      (grfObs.home || []).forEach((p, i) => {
+        if (i >= 11) return;
+        const px = ((p.x + 1) / 2) * 100;
+        const py = ((p.y + 0.42) / 0.84) * 100;
+        positions.home[`player_${i}`] = {
+          x: px,
+          y: py,
+          colour: homeTeam?.primary_colour || '#3b82f6',
+          isGK: i === 0,
+          name: `Player ${i + 1}`,
+          active: p.active,
+          tiredFactor: p.tiredFactor,
+        };
+      });
+      
+      // Away players (right team in GRF, rendered as away)
+      (grfObs.away || []).forEach((p, i) => {
+        if (i >= 11) return;
+        const px = ((p.x + 1) / 2) * 100;
+        const py = ((p.y + 0.42) / 0.84) * 100;
+        positions.away[`player_${i}`] = {
+          x: px,
+          y: py,
+          colour: awayTeam?.primary_colour || '#ef4444',
+          secondary: awayTeam?.secondary_colour || '#b91c1c',
+          isGK: i === 0,
+          name: `Player ${i + 1}`,
+          active: p.active,
+          tiredFactor: p.tiredFactor,
+        };
+      });
+      
+      return positions;
+    }
+
+    // Fallback to JS engine positioning
     if (!homeTeam || !awayTeam) return positions;
 
-    // Place players based on formation + zone
     const formHome = homeTeam.formation || '4-4-2';
     const formAway = awayTeam.formation || '4-4-2';
     const FORMATION_POSITIONS = {
@@ -49,7 +95,6 @@ export default function MatchPitch({ homeTeam, awayTeam, events, currentMinute }
       LW:'ATT_L', RW:'ATT_R', ST:'ATT_C', CDM:'MID_C', CAM:'MID_C', LWB:'DEF_L', RWB:'DEF_R',
     };
 
-    // Use last event's actors for positioning if available
     const lastEvent = lastEventRef.current;
     let ballZone = 'MID_C';
     if (lastEvent && lastEvent.zone) ballZone = lastEvent.zone;
@@ -88,7 +133,7 @@ export default function MatchPitch({ homeTeam, awayTeam, events, currentMinute }
     positions.ball = { x: ballPos.x + (Math.random() - 0.5) * 5, y: ballPos.y + (Math.random() - 0.5) * 5 };
 
     return positions;
-  }, [homeTeam, awayTeam]);
+  }, [homeTeam, awayTeam, grfObs, useGRF]);
 
   // Draw function
   const draw = useCallback(() => {
@@ -166,7 +211,11 @@ export default function MatchPitch({ homeTeam, awayTeam, events, currentMinute }
     const positions = getCurrentPositions();
 
     // Helper to draw a player dot
-    function drawDot(x, y, colour, radius, isGK, isBallCarrier) {
+    function drawDot(x, y, colour, radius, isGK, isBallCarrier, active = true) {
+      if (!active) {
+        ctx.globalAlpha = 0.3;
+      }
+      
       // Shadow
       ctx.beginPath();
       ctx.arc(x, y + 1.5, radius + 1, 0, Math.PI * 2);
@@ -200,24 +249,63 @@ export default function MatchPitch({ homeTeam, awayTeam, events, currentMinute }
         ctx.lineWidth = 1.5;
         ctx.stroke();
       }
+      
+      ctx.globalAlpha = 1;
     }
 
     // Draw away players first (behind)
-    Object.values(positions.away).forEach((p) => {
+    Object.values(positions.away).forEach((p, idx) => {
       if (p.name === undefined) return;
-      drawDot(p.x / 100 * w, p.y / 100 * h, p.secondary || p.colour, 7, p.isGK, false);
+      const x = p.x / 100 * w;
+      const y = p.y / 100 * h;
+      drawDot(x, y, p.secondary || p.colour, 7, p.isGK, false, p.active !== false);
+      
+      // Show fatigue indicator
+      if (p.tiredFactor && p.tiredFactor > 0.5) {
+        ctx.fillStyle = 'rgba(255, 100, 100, 0.5)';
+        ctx.beginPath();
+        ctx.arc(x, y - 12, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
     });
 
     // Draw home players
-    Object.values(positions.home).forEach((p) => {
+    Object.values(positions.home).forEach((p, idx) => {
       if (p.name === undefined) return;
-      drawDot(p.x / 100 * w, p.y / 100 * h, p.colour, 7, p.isGK, false);
+      const x = p.x / 100 * w;
+      const y = p.y / 100 * h;
+      drawDot(x, y, p.colour, 7, p.isGK, false, p.active !== false);
+      
+      // Show fatigue indicator
+      if (p.tiredFactor && p.tiredFactor > 0.5) {
+        ctx.fillStyle = 'rgba(255, 100, 100, 0.5)';
+        ctx.beginPath();
+        ctx.arc(x, y - 12, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
     });
 
     // Draw ball
     const ball = positions.ball;
-    drawDot(ball.x / 100 * w, ball.y / 100 * h, '#ffffff', 3, false, false);
-  }, [getCurrentPositions]);
+    drawDot(ball.x / 100 * w, ball.y / 100 * h, '#ffffff', 5, false, true, true);
+    
+    // Draw ball direction indicator if GRF obs
+    if (useGRF && grfObs?.ballDirection) {
+      const bdx = grfObs.ballDirection.x;
+      const bdy = grfObs.ballDirection.y;
+      if (Math.abs(bdx) > 0.01 || Math.abs(bdy) > 0.01) {
+        ctx.beginPath();
+        ctx.moveTo(ball.x / 100 * w, ball.y / 100 * h);
+        ctx.lineTo(
+          ball.x / 100 * w + bdx * 30,
+          ball.y / 100 * h + bdy * 30
+        );
+        ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+    }
+  }, [getCurrentPositions, grfObs, useGRF]);
 
   // Animation loop
   useEffect(() => {
