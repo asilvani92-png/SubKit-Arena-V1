@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import supabase from '@/lib/supabaseClient';
+import db from '@/lib/db';
 import { useAuth } from '@/lib/AuthContext';
 import MatchPitch from '@/components/game/MatchPitch';
 import MatchHUD from '@/components/game/MatchHUD';
@@ -27,6 +28,11 @@ export default function GameArena() {
   const [showResult, setShowResult] = useState(false);
   const [paused, setPaused] = useState(true);
 
+  // Substitution state
+  const [showSubModal, setShowSubModal] = useState(false);
+  const [subOffIndex, setSubOffIndex] = useState(null);
+  const [subOnIndex, setSubOnIndex] = useState(null);
+
   const engineRef = useRef(null);
   const intervalRef = useRef(null);
 
@@ -52,7 +58,14 @@ export default function GameArena() {
         let awayPlayers = [];
         let awayTeamData = { team_name: 'AI Opponent', primary_colour: '#3b82f6', secondary_colour: '#1d4ed8' };
         if (match.is_ai_match) {
-          const houseTeam = HOUSE_TEAMS[Math.floor(Math.random() * HOUSE_TEAMS.length)];
+          let houseTeam = HOUSE_TEAMS.find(t => t.id === match.away_team_id);
+          
+          if (!houseTeam) {
+            houseTeam = HOUSE_TEAMS[Math.floor(Math.random() * HOUSE_TEAMS.length)];
+            // Persist the chosen house team for this match
+            await db.updateMatch(matchId, { away_team_id: houseTeam.id });
+          }
+          
           awayTeamData = { ...houseTeam, team_name: houseTeam.name };
           // Generate basic players for the house team (simplified in-memory version)
           awayPlayers = generateBasicSquad(houseTeam, match.away_formation || '4-4-2');
@@ -138,9 +151,85 @@ export default function GameArena() {
     setPaused(false);
   }, [homeTeam, awayTeam, matchState]);
 
+  // Match completion handler
+  const handleMatchComplete = useCallback(async (finalState) => {
+    try {
+      // 1. Save match results to DB
+      await db.updateMatch(matchId, {
+        home_score: finalState.home?.score || 0,
+        away_score: finalState.away?.score || 0,
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+      });
+
+      // 2. Calculate XP and ELO changes
+      const homeScore = finalState.home?.score || 0;
+      const awayScore = finalState.away?.score || 0;
+      
+      let xpGain = 100; // Base XP for playing
+      let eloChange = 0;
+
+      if (homeScore > awayScore) {
+        xpGain += 50;
+        eloChange = 20;
+      } else if (homeScore < awayScore) {
+        xpGain += 20;
+        eloChange = -15;
+      } else {
+        xpGain += 30;
+        eloChange = 0;
+      }
+
+      // 3. Update user's flicker club stats
+      if (user?.id) {
+        // This is simplified; in a real app, we'd fetch current ELO first
+        // but for now, we'll just use upsert with the delta logic handled by a function or just simplistic addition
+        // Since we don't have a "increment" helper in db.js, we'll just do a simple update
+        const { data: club } = await supabase
+          .from('flicker_clubs')
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
+
+        if (club) {
+          await db.updateFlickerClub(user.id, {
+            xp: (club.xp || 0) + xpGain,
+            elo_rating: (club.elo_rating || 1000) + eloChange,
+            wins: homeScore > awayScore ? (club.wins || 0) + 1 : (club.wins || 0),
+            draws: homeScore === awayScore ? (club.draws || 0) + 1 : (club.draws || 0),
+            losses: homeScore < awayScore ? (club.losses || 0) + 1 : (club.losses || 0),
+          });
+        } else {
+          // Create club if it doesn't exist
+          await db.updateFlickerClub(user.id, {
+            xp: xpGain,
+            elo_rating: 1000 + eloChange,
+            wins: homeScore > awayScore ? 1 : 0,
+            draws: homeScore === awayScore ? 1 : 0,
+            losses: homeScore < awayScore ? 1 : 0,
+          });
+        }
+      }
+    } catch (e) {
+      console.error('Error persisting match results:', e);
+    }
+  }, [matchId, user]);
+
   // Tick engine at set interval
   useEffect(() => {
     if (!engineState || paused || showResult) return;
+    
+    if (speed === 'instant') {
+      // Instant mode: immediately jump to completion
+      const finalState = { ...engineRef.current, status: 'completed', minute: 90 };
+      setEngineState(finalState);
+      setEvents([...finalState.events]);
+      setShowResult(true);
+      setPaused(true);
+      handleMatchComplete(finalState);
+      return;
+    }
+
     const tickIntervals = { slow: 800, normal: 500, fast: 250 };
     const interval = tickIntervals[speed] || 500;
 
@@ -154,6 +243,7 @@ export default function GameArena() {
         setEngineState({ ...state });
         setShowResult(true);
         setPaused(true);
+        handleMatchComplete(state);
         return;
       }
 
@@ -175,7 +265,7 @@ export default function GameArena() {
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [engineState, paused, speed, showResult]);
+  }, [engineState, paused, speed, showResult, handleMatchComplete]);
 
   // Always render from full event set
   const displayEvents = events;
@@ -213,6 +303,32 @@ export default function GameArena() {
       });
       setEngineState({ ...engineRef.current });
       setEvents([...engineRef.current.events]);
+    }
+  };
+
+  const handleSubstitution = () => {
+    if (!engineRef.current || subOffIndex === null || subOnIndex === null) return;
+    
+    const result = applyUserAction(engineRef.current, 'home', 'substitution', {
+      offIndex: subOffIndex,
+      onIndex: subOnIndex
+    });
+
+    if (result.success) {
+      engineRef.current.events.push({
+        minute: Math.floor(engineRef.current.minute),
+        eventType: 'user_action',
+        team: 'home',
+        commentary: `[SUB] ${engineRef.current.home.players[subOnIndex]?.player_name} replaces ${engineRef.current.home.players[subOffIndex]?.player_name}`,
+        is_user_action: true,
+      });
+      setEngineState({ ...engineRef.current });
+      setEvents([...engineRef.current.events]);
+      setShowSubModal(false);
+      setSubOffIndex(null);
+      setSubOnIndex(null);
+    } else {
+      alert(result.error || 'Substitution failed');
     }
   };
 
@@ -275,6 +391,24 @@ export default function GameArena() {
           <p className="text-xs text-muted-foreground">
             {matchState?.away_team_name ? `vs ${matchState.away_team_name}` : 'vs AI Opponent'}
           </p>
+          
+          <div className="space-y-2">
+            <p className="text-[10px] font-heading text-muted-foreground uppercase tracking-widest">Select Formation</p>
+            <select 
+              value={matchState?.home_formation || '4-4-2'}
+              onChange={async (e) => {
+                const formation = e.target.value;
+                await db.updateMatch(matchId, { home_formation: formation });
+                setMatchState(prev => ({ ...prev, home_formation: formation }));
+              }}
+              className="w-full p-2 bg-secondary border border-border rounded text-xs font-heading text-foreground outline-none"
+            >
+              {['4-4-2', '4-3-3', '4-5-1', '3-5-2', '4-2-3-1', '5-3-2', '3-4-3', '4-1-2-1-2'].map(f => (
+                <option key={f} value={f}>{f}</option>
+              ))}
+            </select>
+          </div>
+
           <div className="flex gap-3 justify-center">
             <button
               onClick={startMatch}
@@ -349,7 +483,7 @@ export default function GameArena() {
             subsUsed={engineState.home?.subsUsed || 0}
             onShout={handleShout}
             onAction={handleAction}
-            onSub={() => {}}
+            onSub={() => setShowSubModal(true)}
           />
         </div>
       )}
@@ -394,6 +528,78 @@ export default function GameArena() {
           }}
           onClose={() => navigate('/matches')}
         />
+      )}
+      {/* Result screen */}
+      {showResult && (
+        <MatchResult
+          matchState={engineState}
+          onRematch={() => {
+            setEngineState(null);
+            setEvents([]);
+            setShowResult(false);
+            setPaused(true);
+          }}
+          onClose={() => navigate('/matches')}
+        />
+      )}
+
+      {/* Substitution Modal */}
+      {showSubModal && (
+        <div className="fixed inset-0 bg-background/90 backdrop-blur z-50 flex items-center justify-center p-4">
+          <div className="bg-card border border-border rounded-2xl p-6 max-w-md w-full space-y-6">
+            <h3 className="font-heading text-lg font-bold text-gold uppercase tracking-wider text-center">Substitution</h3>
+            
+            <div className="grid grid-cols-2 gap-4">
+              {/* Out Player */}
+              <div className="space-y-2">
+                <p className="text-[10px] font-heading text-muted-foreground uppercase text-center">Player Out</p>
+                <div className="space-y-1 max-h-60 overflow-y-auto border border-border rounded-lg p-1">
+                  {homeTeam.players.slice(0, 11).map((p, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setSubOffIndex(i)}
+                      className={`w-full text-left px-3 py-2 rounded text-xs transition-colors ${subOffIndex === i ? 'bg-gold text-background font-bold' : 'hover:bg-secondary text-foreground'}`}
+                    >
+                      {p.player_name} <span className="text-[9px] opacity-60">({p.specific_position})</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* In Player */}
+              <div className="space-y-2">
+                <p className="text-[10px] font-heading text-muted-foreground uppercase text-center">Player In</p>
+                <div className="space-y-1 max-h-60 overflow-y-auto border border-border rounded-lg p-1">
+                  {homeTeam.players.slice(11).map((p, i) => (
+                    <button
+                      key={i + 11}
+                      onClick={() => setSubOnIndex(i + 11)}
+                      className={`w-full text-left px-3 py-2 rounded text-xs transition-colors ${subOnIndex === i + 11 ? 'bg-gold text-background font-bold' : 'hover:bg-secondary text-foreground'}`}
+                    >
+                      {p.player_name} <span className="text-[9px] opacity-60">({p.specific_position})</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowSubModal(false)}
+                className="flex-1 py-2 border border-border text-muted-foreground font-heading text-xs rounded hover:text-foreground transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubstitution}
+                disabled={subOffIndex === null || subOnIndex === null}
+                className="flex-1 py-2 bg-gold text-background font-heading font-bold tracking-wider text-xs rounded disabled:opacity-50 hover:bg-gold-light transition-colors"
+              >
+                Confirm Sub
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -179,6 +179,27 @@ const db = {
     },
   },
 
+  async updateMatch(matchId, updates) {
+    const { data, error } = await supabase
+      .from('matches')
+      .update(updates)
+      .eq('id', matchId)
+      .select('*')
+      .single();
+    if (error) throw error;
+    return data;
+  },
+
+  async updateFlickerClub(userId, updates) {
+    const { data, error } = await supabase
+      .from('flicker_clubs')
+      .upsert({ user_id: userId, ...updates })
+      .select('*')
+      .single();
+    if (error) throw error;
+    return data;
+  },
+
   entities: new Proxy({}, {
     get: (_target, entityName) => entityClient(entityName),
   }),
