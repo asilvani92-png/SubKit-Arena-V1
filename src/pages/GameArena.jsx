@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import supabase from '@/lib/supabaseClient';
 import db from '@/lib/db';
 import { useAuth } from '@/lib/AuthContext';
+import { RealtimeMatchManager } from '@/lib/pvp';
 import MatchPitch from '@/components/game/MatchPitch';
 import MatchHUD from '@/components/game/MatchHUD';
 import CommentaryFeed from '@/components/game/CommentaryFeed';
@@ -35,113 +36,21 @@ export default function GameArena() {
 
   const engineRef = useRef(null);
   const intervalRef = useRef(null);
-
-  // Load match data
-  useEffect(() => {
-    if (!matchId || !user) return;
-    (async () => {
-      try {
-        const { data: match, error: matchErr } = await supabase
-          .from('matches')
-          .select('*')
-          .eq('id', matchId)
-          .single();
-        if (matchErr) throw matchErr;
-
-        // Load home team players
-        const { data: homePlayers } = await supabase
-          .from('PlayerCard')
-          .select('*')
-          .eq('collection_id', match.home_collection_id);
-
-        // If AI match, pick a random house team
-        let awayPlayers = [];
-        let awayTeamData = { team_name: 'AI Opponent', primary_colour: '#3b82f6', secondary_colour: '#1d4ed8' };
-        if (match.is_ai_match) {
-          let houseTeam = HOUSE_TEAMS.find(t => t.id === match.away_team_id);
-          
-          if (!houseTeam) {
-            houseTeam = HOUSE_TEAMS[Math.floor(Math.random() * HOUSE_TEAMS.length)];
-            // Persist the chosen house team for this match
-            await db.updateMatch(matchId, { away_team_id: houseTeam.id });
-          }
-          
-          awayTeamData = { ...houseTeam, team_name: houseTeam.name };
-          // Generate basic players for the house team (simplified in-memory version)
-          awayPlayers = generateBasicSquad(houseTeam, match.away_formation || '4-4-2');
-        } else if (match.away_collection_id) {
-          const { data: awayP } = await supabase
-            .from('PlayerCard')
-            .select('*')
-            .eq('collection_id', match.away_collection_id);
-          if (awayP) awayPlayers = awayP;
-        }
-
-        setHomeTeam({
-          ...match,
-          team_name: match.home_team_name,
-          players: homePlayers || [],
-          collection_id: match.home_collection_id,
-        });
-        setAwayTeam({
-          ...awayTeamData,
-          players: awayPlayers,
-        });
-        setMatchState(match);
-        setLoading(false);
-      } catch (e) {
-        console.error(e);
-        setError(e.message);
-        setLoading(false);
-      }
-    })();
-  }, [matchId, user]);
-
-  // Generate basic squad for house teams (in-memory version of the Edge Function)
-  function generateBasicSquad(team, formation) {
-    const FORMATIONS = { '4-4-2': ['GK','LB','CB','CB','RB','LM','CM','CM','RM','ST','ST'], '4-3-3': ['GK','LB','CB','CB','RB','CM','CM','CM','LW','ST','RW'], '4-5-1': ['GK','LB','CB','CB','RB','LM','CM','CM','CM','RM','ST'], '3-5-2': ['GK','CB','CB','CB','LM','CM','CM','CM','RM','ST','ST'], '4-2-3-1':['GK','LB','CB','CB','RB','CDM','CDM','CAM','LM','RM','ST'], '5-3-2':['GK','LWB','CB','CB','CB','RWB','CM','CM','CM','ST','ST'], '3-4-3':['GK','CB','CB','CB','LM','CM','CM','RM','LW','ST','RW'], '4-1-2-1-2':['GK','LB','CB','CB','RB','CDM','CM','CM','CAM','ST','ST']};
-    const positions = FORMATIONS[formation] || FORMATIONS['4-4-2'];
-    const base = team.base_rating || 60;
-    const names = ['Rossi','Bianchi','Romano','Ferrari','Esposito','Russo','Bruno','Greco','Conti','Mancini','Rizzo','Lombardi','Moretti'];
-    return positions.map((pos, i) => ({
-      player_name: `Player ${i + 1}`,
-      specific_position: pos,
-      position: pos === 'GK' ? 'Goalkeeper' : (['CB','LB','RB','LWB','RWB'].includes(pos) ? 'Defender' : (['ST','LW','RW'].includes(pos) ? 'Forward' : 'Midfielder')),
-      is_substitute: false,
-      slot_index: i,
-      pace: clampStat(base * (Math.random() * 0.4 + 0.6)),
-      shooting: clampStat(base * (Math.random() * 0.4 + 0.6)),
-      passing: clampStat(base * (Math.random() * 0.4 + 0.6)),
-      dribbling: clampStat(base * (Math.random() * 0.4 + 0.6)),
-      tackling: clampStat(base * (Math.random() * 0.4 + 0.6)),
-      heading: clampStat(base * (Math.random() * 0.4 + 0.6)),
-      crossing: clampStat(base * (Math.random() * 0.4 + 0.6)),
-      vision: clampStat(base * (Math.random() * 0.4 + 0.6)),
-      technique: clampStat(base * (Math.random() * 0.4 + 0.6)),
-      positioning: clampStat(base * (Math.random() * 0.4 + 0.6)),
-      strength: clampStat(base * (Math.random() * 0.4 + 0.6)),
-      stamina: clampStat(base * (Math.random() * 0.4 + 0.6)),
-      aggression: clampStat(base * (Math.random() * 0.4 + 0.6)),
-      composure: clampStat(base * (Math.random() * 0.4 + 0.6)),
-      set_pieces: clampStat(base * (Math.random() * 0.4 + 0.6)),
-      bravery: clampStat(base * (Math.random() * 0.4 + 0.6)),
-      fatigue: 0,
-      overall_rating: base,
-    }));
-  }
-
-  function clampStat(v) { return Math.max(1, Math.min(99, Math.round(v))); }
+  const awaitingTimerRef = useRef(null);
+  const realtimeMgrRef = useRef(null);
+  const realtimeMgrRef = useRef(null);
 
   // Start match
   const startMatch = useCallback(() => {
     if (!homeTeam || !awayTeam) return;
+    const isPvP = !matchState?.is_ai_match && matchState?.away_user_id && !awaitingOpponent;
     const state = simulateFullMatch(
       homeTeam,
       awayTeam,
       matchState?.home_formation || '4-4-2',
       matchState?.away_formation || '4-4-2',
       matchState?.home_tactic || 'balanced',
-      'balanced',
+      matchState?.away_tactic || 'balanced',
       matchState?.match_type || 'friendly',
       Date.now() % 65536
     );
@@ -149,7 +58,21 @@ export default function GameArena() {
     setEngineState(state);
     setEvents(state.events);
     setPaused(false);
-  }, [homeTeam, awayTeam, matchState]);
+
+    // Start PvP realtime sync if applicable
+    if (isPvP && user && matchState) {
+      realtimeMgrRef.current = new RealtimeMatchManager(
+        matchId,
+        user.id,
+        (newState) => setEngineState(prev => ({ ...(prev || engineRef.current), ...newState })),
+        (ev, allEvts) => {
+          if (ev) setEvents(prev => [...prev, ev]);
+          if (allEvts) setEvents(allEvts);
+        }
+      );
+      realtimeMgrRef.current.start(engineRef.current);
+    }
+  }, [homeTeam, awayTeam, matchState, awaitingOpponent, matchId, user]); 
 
   // Match completion handler
   const handleMatchComplete = useCallback(async (finalState) => {

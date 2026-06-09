@@ -77,6 +77,9 @@ create table if not exists matches (
   current_turn int default 0,
   engine_version text,
   status text default 'pending',
+  is_async boolean default false,
+  challenge_expires_at timestamptz,
+  last_synced_at timestamptz default now(),
   created_at timestamptz default now(),
   completed_at timestamptz
 );

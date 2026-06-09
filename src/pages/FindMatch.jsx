@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { Link, useNavigate } from 'react-router-dom';
+import { createPvpMatch } from '@/lib/pvp';
 
 export default function FindMatch() {
   const [query, setQuery] = useState('');
@@ -38,20 +39,21 @@ export default function FindMatch() {
       if (!me) { toast.error('You must be logged in'); return; }
       if (!selectedCollection) { toast.error('Select your verified team first'); return; }
 
-      // check opponent has at least one verified collection
       const { data: oppCols, error: oppErr } = await supabase.from('UserCollection').select('*').eq('user_id', user.id).eq('is_verified', true).limit(1);
       if (oppErr) throw oppErr;
       if (!oppCols || oppCols.length === 0) { toast.error('Opponent has no verified teams'); return; }
 
       const awayCollectionId = oppCols[0].id;
 
-      // create match record in pending status and include collections in board_state
-      const match = { world_id: null, home_user: me.id, away_user: user.id, board_state: { home_collection_id: selectedCollection, away_collection_id: awayCollectionId }, action_log: [], current_turn: 0, status: 'pending' };
-      const { data, error } = await supabase.from('matches').insert([match]).select('*');
-      if (error) throw error;
-      const matchId = data && data[0] && data[0].id;
-      toast.success('Challenge created — navigating to arena');
-      if (matchId) navigate(`/match/${matchId}/arena`);
+      const match = await createPvpMatch({
+        homeUserId: me.id,
+        homeCollectionId: selectedCollection,
+        opponentUserId: user.id,
+        awayCollectionId,
+        matchType: 'ranked',
+      });
+
+      toast.success('Challenge sent! Waiting for opponent to accept.');
     } catch (e) { console.error(e); toast.error('Failed to send challenge'); }
   };
 

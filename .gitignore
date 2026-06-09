@@ -29,3 +29,6 @@ dist-ssr
 
 .env
 .vite
+
+# Supabase CLI temp metadata
+supabase/.temp
