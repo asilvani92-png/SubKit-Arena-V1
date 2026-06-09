@@ -1,6 +1,7 @@
 {
   "name": "SubbuteoTeam",
   "type": "object",
+  "description": "A Subbuteo reference team in the SubKit catalogue. Base_rating drives stat generation for Flicker Club Match Night.",
   "properties": {
     "name": {
       "type": "string",
@@ -13,18 +14,17 @@
     "era": {
       "type": "string",
       "enum": [
-        "Heavyweight 1960s",
-        "Heavyweight 1970s",
-        "Lightweight 1970s",
-        "Lightweight 1980s",
-        "Lightweight 1990s",
+        "1966-1975",
+        "1976-1985",
+        "1986-1995",
+        "1996-2005",
         "Modern 2000s",
         "Modern 2010s",
         "Modern 2020s",
         "Special Edition",
         "Unknown"
       ],
-      "description": "Production era"
+      "description": "Production era — also drives stat-generation era modifier"
     },
     "country": {
       "type": "string",
@@ -33,6 +33,14 @@
     "kit_description": {
       "type": "string",
       "description": "Brief description of the kit colours and style"
+    },
+    "primary_colour": {
+      "type": "string",
+      "description": "Primary kit colour (CSS colour string) — used for home dot colour"
+    },
+    "secondary_colour": {
+      "type": "string",
+      "description": "Secondary kit colour (CSS colour string) — used for away dot colour / ring"
     },
     "player_count": {
       "type": "number",
@@ -49,7 +57,12 @@
         "Legend"
       ],
       "default": "Common",
-      "description": "Rarity tier"
+      "description": "Rarity tier — also drives in-match stat bonuses"
+    },
+    "base_rating": {
+      "type": "number",
+      "description": "Admin-set base rating (1-99) reflecting the real-world quality of the team. Drives stat generation.",
+      "default": 60
     },
     "market_value_gbp": {
       "type": "number",
@@ -75,6 +88,16 @@
         "Other"
       ],
       "default": "Subbuteo"
+    },
+    "is_house_team": {
+      "type": "boolean",
+      "default": false,
+      "description": "If true, this is a classic reference used as an AI opponent. Users do not need to own it to play against it."
+    },
+    "ai_difficulty_tier": {
+      "type": "number",
+      "description": "For house teams: 1=easy, 2=medium, 3=hard. Used to match opponents to manager level.",
+      "default": 1
     },
     "notes": {
       "type": "string",

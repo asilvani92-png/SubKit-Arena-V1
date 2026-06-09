@@ -1,0 +1,83 @@
+{
+  "name": "MatchEvent",
+  "type": "object",
+  "description": "An individual event resolved by the Flicker Club match engine. One row per event. Used for the event log, commentary, and replay. Append-only.",
+  "properties": {
+    "match_id": {
+      "type": "string"
+    },
+    "minute": {
+      "type": "number"
+    },
+    "tick": {
+      "type": "number",
+      "description": "0-indexed tick within the match"
+    },
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "kickoff",
+        "short_pass",
+        "long_pass",
+        "through_ball",
+        "dribble",
+        "cross",
+        "shot",
+        "header",
+        "tackle",
+        "interception",
+        "block",
+        "save",
+        "foul",
+        "free_kick",
+        "corner",
+        "penalty",
+        "throw_in",
+        "goal_kick",
+        "goal",
+        "yellow_card",
+        "red_card",
+        "injury",
+        "half_time",
+        "full_time",
+        "user_action"
+      ]
+    },
+    "team": {
+      "type": "string",
+      "enum": ["home", "away", "none"]
+    },
+    "acting_player_id": {
+      "type": "string"
+    },
+    "opposing_player_id": {
+      "type": "string"
+    },
+    "zone": {
+      "type": "string"
+    },
+    "outcome": {
+      "type": "string",
+      "enum": ["success", "fail", "goal", "save", "foul", "card", "info"]
+    },
+    "outcome_score": {
+      "type": "number"
+    },
+    "threshold": {
+      "type": "number"
+    },
+    "is_user_action": {
+      "type": "boolean",
+      "default": false
+    },
+    "commentary": {
+      "type": "string"
+    },
+    "details": {
+      "type": "object",
+      "description": "Free-form per-event-type context (e.g. shot placement, card reason)"
+    },
+    "created_at": { "type": "string" }
+  },
+  "required": ["match_id", "minute", "event_type"]
+}

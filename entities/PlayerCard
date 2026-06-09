@@ -1,17 +1,29 @@
 {
   "name": "PlayerCard",
   "type": "object",
-  "description": "A player card within a user's collection slot \u2014 holds stats and identity",
+  "description": "A generated player card for a user's team in their collection. Stats are derived from the SubbuteoTeam base rating, position template, era modifier, and seeded variance. These cards are what actually play in Flicker Club Match Night.",
   "properties": {
     "collection_id": {
       "type": "string",
       "description": "Parent UserCollection id"
     },
+    "team_id": {
+      "type": "string",
+      "description": "Parent SubbuteoTeam id (denormalised for fast lookups during matches)"
+    },
     "slot_index": {
-      "type": "number"
+      "type": "number",
+      "description": "0-10 in starting XI, 11-13 for substitutes"
+    },
+    "is_substitute": {
+      "type": "boolean",
+      "default": false
     },
     "player_name": {
       "type": "string"
+    },
+    "squad_number": {
+      "type": "number"
     },
     "position": {
       "type": "string",
@@ -22,57 +34,66 @@
         "Forward"
       ]
     },
+    "specific_position": {
+      "type": "string",
+      "description": "Finer-grained formation slot — GK, LB, CB, RB, LWB, RWB, CDM, CM, CAM, LM, RM, LW, RW, ST",
+      "enum": [
+        "GK",
+        "LB",
+        "CB",
+        "RB",
+        "LWB",
+        "RWB",
+        "CDM",
+        "CM",
+        "CAM",
+        "LM",
+        "RM",
+        "LW",
+        "RW",
+        "ST"
+      ]
+    },
     "photo_url": {
       "type": "string"
     },
-    "stat_speed": {
+    "stat_pace": { "type": "number", "default": 50, "minimum": 1, "maximum": 99 },
+    "stat_shooting": { "type": "number", "default": 50, "minimum": 1, "maximum": 99 },
+    "stat_passing": { "type": "number", "default": 50, "minimum": 1, "maximum": 99 },
+    "stat_dribbling": { "type": "number", "default": 50, "minimum": 1, "maximum": 99 },
+    "stat_tackling": { "type": "number", "default": 50, "minimum": 1, "maximum": 99 },
+    "stat_heading": { "type": "number", "default": 50, "minimum": 1, "maximum": 99 },
+    "stat_crossing": { "type": "number", "default": 50, "minimum": 1, "maximum": 99 },
+    "stat_vision": { "type": "number", "default": 50, "minimum": 1, "maximum": 99 },
+    "stat_technique": { "type": "number", "default": 50, "minimum": 1, "maximum": 99 },
+    "stat_positioning": { "type": "number", "default": 50, "minimum": 1, "maximum": 99 },
+    "stat_strength": { "type": "number", "default": 50, "minimum": 1, "maximum": 99 },
+    "stat_stamina": { "type": "number", "default": 50, "minimum": 1, "maximum": 99 },
+    "stat_aggression": { "type": "number", "default": 50, "minimum": 1, "maximum": 99 },
+    "stat_composure": { "type": "number", "default": 50, "minimum": 1, "maximum": 99 },
+    "stat_set_pieces": { "type": "number", "default": 50, "minimum": 1, "maximum": 99 },
+    "stat_bravery": { "type": "number", "default": 50, "minimum": 1, "maximum": 99 },
+    "stat_handling": { "type": "number", "default": 50, "minimum": 1, "maximum": 99, "description": "GK only" },
+    "stat_reflexes": { "type": "number", "default": 50, "minimum": 1, "maximum": 99, "description": "GK only" },
+    "stat_kicking": { "type": "number", "default": 50, "minimum": 1, "maximum": 99, "description": "GK only" },
+    "stat_one_on_ones": { "type": "number", "default": 50, "minimum": 1, "maximum": 99, "description": "GK only" },
+    "stat_aerial_reach": { "type": "number", "default": 50, "minimum": 1, "maximum": 99, "description": "GK only" },
+    "stat_communication": { "type": "number", "default": 50, "minimum": 1, "maximum": 99, "description": "GK only — gives team positioning bonus" },
+    "stat_fatigue": {
       "type": "number",
-      "description": "0-100",
-      "default": 50
-    },
-    "stat_shooting": {
-      "type": "number",
-      "description": "0-100",
-      "default": 50
-    },
-    "stat_passing": {
-      "type": "number",
-      "description": "0-100",
-      "default": 50
-    },
-    "stat_tackling": {
-      "type": "number",
-      "description": "0-100",
-      "default": 50
-    },
-    "stat_stamina": {
-      "type": "number",
-      "description": "0-100",
-      "default": 50
-    },
-    "stat_spin": {
-      "type": "number",
-      "description": "Subbuteo-specific: flick spin quality 0-100",
-      "default": 50
-    },
-    "stat_flick_accuracy": {
-      "type": "number",
-      "description": "Subbuteo-specific: flicking precision 0-100",
-      "default": 50
-    },
-    "stat_base_stability": {
-      "type": "number",
-      "description": "Subbuteo-specific: base weight/stability 0-100",
-      "default": 50
+      "default": 0,
+      "description": "0-100 in-match fatigue accumulation. Resets to 0 at match start."
     },
     "overall_rating": {
       "type": "number",
-      "description": "Computed overall 0-100"
+      "description": "Computed overall 0-99"
     }
   },
   "required": [
     "collection_id",
+    "team_id",
     "slot_index",
-    "position"
+    "position",
+    "specific_position"
   ]
 }

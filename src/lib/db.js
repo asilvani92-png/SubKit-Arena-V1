@@ -1,8 +1,10 @@
 import supabase from '@/lib/supabaseClient';
 
 const tableNames = {
+  FlickerClub: 'flicker_clubs',
   LeagueTable: 'LeagueTable',
-  Match: 'Match',
+  Match: 'matches',
+  MatchEvent: 'match_events',
   PlayerCard: 'PlayerCard',
   SubbuteoTeam: 'SubbuteoTeam',
   User: 'users',

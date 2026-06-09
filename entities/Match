@@ -1,25 +1,23 @@
 {
   "name": "Match",
   "type": "object",
+  "description": "A Flicker Club Match Night football match. Replaces the old turn-based match shape. The actual simulation state is held in match_events; this row is the metadata + score/clock snapshot.",
   "properties": {
     "home_user_id": {
-      "type": "string"
+      "type": "string",
+      "description": "Auth user id of the home manager"
     },
     "away_user_id": {
-      "type": "string"
-    },
-    "home_user_name": {
-      "type": "string"
-    },
-    "away_user_name": {
-      "type": "string"
+      "type": "string",
+      "description": "Auth user id of the away manager. For AI matches, this is the user id of the AI owner (a 'house' user) or null"
     },
     "home_collection_id": {
       "type": "string",
-      "description": "UserCollection id for home team"
+      "description": "UserCollection id for the home team"
     },
     "away_collection_id": {
-      "type": "string"
+      "type": "string",
+      "description": "UserCollection id for the away team. For AI matches, references a house-team collection."
     },
     "home_team_name": {
       "type": "string"
@@ -27,23 +25,35 @@
     "away_team_name": {
       "type": "string"
     },
+    "match_type": {
+      "type": "string",
+      "enum": ["friendly", "ranked", "cup", "league", "ai"],
+      "default": "friendly"
+    },
     "status": {
       "type": "string",
-      "enum": [
-        "pending",
-        "active",
-        "completed",
-        "abandoned"
-      ],
+      "enum": ["pending", "active", "half_time", "completed", "abandoned"],
       "default": "pending"
     },
-    "current_turn": {
+    "is_ai_match": {
+      "type": "boolean",
+      "default": false
+    },
+    "home_formation": {
       "type": "string",
-      "enum": [
-        "home",
-        "away"
-      ],
-      "default": "home"
+      "description": "Formation key e.g. 4-4-2"
+    },
+    "away_formation": {
+      "type": "string"
+    },
+    "home_tactic": {
+      "type": "string",
+      "description": "Tactical preset: balanced, attacking, defensive, counter, possession, direct",
+      "default": "balanced"
+    },
+    "away_tactic": {
+      "type": "string",
+      "default": "balanced"
     },
     "home_score": {
       "type": "number",
@@ -53,79 +63,123 @@
       "type": "number",
       "default": 0
     },
-    "turn_number": {
+    "current_minute": {
       "type": "number",
-      "default": 0
+      "default": 0,
+      "description": "0 to 90 (plus extra time for cups)"
     },
-    "max_turns": {
+    "home_ap_remaining": {
       "type": "number",
-      "default": 90
+      "default": 6
+    },
+    "away_ap_remaining": {
+      "type": "number",
+      "default": 6
+    },
+    "home_active_shout": {
+      "type": "string",
+      "description": "Currently active tactical shout for the home team, or null"
+    },
+    "home_shout_expires_minute": {
+      "type": "number"
+    },
+    "away_active_shout": {
+      "type": "string"
+    },
+    "away_shout_expires_minute": {
+      "type": "number"
+    },
+    "home_momentum": {
+      "type": "number",
+      "default": 0,
+      "description": "Hidden momentum value -100 to +100 (positive = home)"
+    },
+    "possession": {
+      "type": "string",
+      "enum": ["home", "away", "none"],
+      "default": "home"
+    },
+    "ball_zone": {
+      "type": "string",
+      "description": "Current zone on the 4x3 grid — DEF_L/DEF_C/DEF_R/MID_L/MID_C/MID_R/ATT_L/ATT_C/ATT_R/BOX_L/BOX_C/BOX_R"
+    },
+    "speed": {
+      "type": "string",
+      "enum": ["slow", "normal", "fast", "instant"],
+      "default": "normal"
+    },
+    "is_async": {
+      "type": "boolean",
+      "default": false
     },
     "winner_user_id": {
       "type": "string"
     },
-    "board_state": {
-      "type": "object",
-      "description": "JSON snapshot of current pitch positions",
-      "properties": {
-        "home_positions": {
-          "type": "array",
-          "items": {
-            "type": "object"
-          }
-        },
-        "away_positions": {
-          "type": "array",
-          "items": {
-            "type": "object"
-          }
-        },
-        "ball_position": {
-          "type": "object"
-        }
-      }
+    "man_of_the_match_player_id": {
+      "type": "string",
+      "description": "PlayerCard id"
+    },
+    "home_subs_used": {
+      "type": "number",
+      "default": 0,
+      "description": "Max 3"
+    },
+    "away_subs_used": {
+      "type": "number",
+      "default": 0
     },
     "action_log": {
       "type": "array",
-      "description": "History of all moves and clashes",
+      "description": "Append-only record of user actions taken during the match (tactical shouts, demand shot, sub, etc.)",
       "items": {
         "type": "object",
         "properties": {
-          "turn": {
-            "type": "number"
-          },
-          "player": {
-            "type": "string"
-          },
-          "action": {
-            "type": "string"
-          },
-          "from": {
-            "type": "object"
-          },
-          "to": {
-            "type": "object"
-          },
-          "result": {
-            "type": "string"
-          },
-          "timestamp": {
-            "type": "string"
-          }
+          "minute": { "type": "number" },
+          "team": { "type": "string", "enum": ["home", "away"] },
+          "action_type": { "type": "string" },
+          "detail": { "type": "object" },
+          "ap_cost": { "type": "number" },
+          "timestamp": { "type": "string" }
         }
       }
     },
-    "home_boost_used": {
-      "type": "boolean",
-      "default": false
+    "board_state": {
+      "type": "object",
+      "description": "Final or current snapshot of pitch state used for replay and persistence",
+      "properties": {
+        "minute": { "type": "number" },
+        "home_positions": { "type": "array", "items": { "type": "object" } },
+        "away_positions": { "type": "array", "items": { "type": "object" } },
+        "ball_position": { "type": "object" }
+      }
     },
-    "away_boost_used": {
-      "type": "boolean",
-      "default": false
-    }
+    "stats": {
+      "type": "object",
+      "description": "Match statistics accumulated across the simulation",
+      "properties": {
+        "home_possession_pct": { "type": "number" },
+        "home_shots": { "type": "number" },
+        "home_shots_on_target": { "type": "number" },
+        "home_fouls": { "type": "number" },
+        "home_corners": { "type": "number" },
+        "home_yellow_cards": { "type": "number" },
+        "home_red_cards": { "type": "number" },
+        "away_possession_pct": { "type": "number" },
+        "away_shots": { "type": "number" },
+        "away_shots_on_target": { "type": "number" },
+        "away_fouls": { "type": "number" },
+        "away_corners": { "type": "number" },
+        "away_yellow_cards": { "type": "number" },
+        "away_red_cards": { "type": "number" }
+      }
+    },
+    "started_at": { "type": "string" },
+    "completed_at": { "type": "string" },
+    "created_date": { "type": "string" }
   },
   "required": [
     "home_user_id",
-    "away_user_id"
+    "home_collection_id",
+    "match_type"
   ]
 }
