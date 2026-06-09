@@ -104,18 +104,18 @@ export default async (req: Request) => {
     const body = await req.json();
     const { collection_id, formation } = body;
     if (!collection_id) return new Response('collection_id required', { status: 400, headers: cors });
-    const cols: any[] = await supabaseFetch(`UserCollection?id=eq.${collection_id}&select=*`);
+    const cols: any[] = await supabaseFetch(`collections?id=eq.${collection_id}&select=*`);
     const collection = cols && cols[0];
     if (!collection) return new Response('collection not found', { status: 404, headers: cors });
-    const teams: any[] = await supabaseFetch(`SubbuteoTeam?id=eq.${collection.team_id}&select=*`);
+    const teams: any[] = await supabaseFetch(`teams?id=eq.${collection.team_id}&select=*`);
     const team = teams && teams[0];
     if (!team) return new Response('team not found', { status: 404, headers: cors });
     const photoBonus = collection.is_verified ? 3 : 0;
     const formationKey = formation || '4-4-2';
     const players = generateSquad(team, formationKey, photoBonus);
-    await supabaseFetch(`PlayerCard?collection_id=eq.${collection_id}`, { method: 'DELETE', prefer: 'return=minimal' });
+    await supabaseFetch(`team_players?collection_id=eq.${collection_id}`, { method: 'DELETE', prefer: 'return=minimal' });
     const rows = players.map((p) => ({ ...p, collection_id, team_id: team.id }));
-    const inserted = await supabaseFetch('PlayerCard', { method: 'POST', body: JSON.stringify(rows) });
+    const inserted = await supabaseFetch('team_players', { method: 'POST', body: JSON.stringify(rows) });
     return new Response(JSON.stringify({ players: inserted, formation: formationKey, team }), { status: 200, headers: { ...cors, 'Content-Type': 'application/json' } });
   } catch (e: any) {
     console.error(e);

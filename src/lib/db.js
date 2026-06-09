@@ -1,14 +1,16 @@
 import supabase from '@/lib/supabaseClient';
 
+// Maps the abstract entity names to the actual Supabase table names.
+// The real database uses lowercase plural names: teams, collections, matches, etc.
 const tableNames = {
   FlickerClub: 'flicker_clubs',
   LeagueTable: 'LeagueTable',
   Match: 'matches',
   MatchEvent: 'match_events',
-  PlayerCard: 'PlayerCard',
-  SubbuteoTeam: 'SubbuteoTeam',
-  User: 'users',
-  UserCollection: 'UserCollection',
+  PlayerCard: 'team_players',
+  SubbuteoTeam: 'teams',
+  User: 'profiles',
+  UserCollection: 'collections',
 };
 
 const getCurrentUser = async () => {

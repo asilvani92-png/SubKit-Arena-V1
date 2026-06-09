@@ -1,0 +1,63 @@
+-- Flicker Club Match Night migration
+-- Run in Supabase SQL editor: https://supabase.com/dashboard/project/uejjtqbbzvwvcuvnvann/sql/new
+-- Idempotent: safe to re-run.
+
+-- 1. Extend teams table
+ALTER TABLE public.teams ADD COLUMN IF NOT EXISTS base_rating integer DEFAULT 60 CHECK (base_rating BETWEEN 1 AND 99);
+ALTER TABLE public.teams ADD COLUMN IF NOT EXISTS primary_colour text;
+ALTER TABLE public.teams ADD COLUMN IF NOT EXISTS secondary_colour text;
+ALTER TABLE public.teams ADD COLUMN IF NOT EXISTS is_house_team boolean DEFAULT false;
+ALTER TABLE public.teams ADD COLUMN IF NOT EXISTS ai_difficulty_tier integer DEFAULT 1 CHECK (ai_difficulty_tier BETWEEN 1 AND 3);
+ALTER TABLE public.teams ADD COLUMN IF NOT EXISTS era text;
+
+-- 2. Extend collections table
+ALTER TABLE public.collections ADD COLUMN IF NOT EXISTS notes text;
+ALTER TABLE public.collections ADD COLUMN IF NOT EXISTS team_name text;
+ALTER TABLE public.collections ADD COLUMN IF NOT EXISTS team_rarity text;
+ALTER TABLE public.collections ADD COLUMN IF NOT EXISTS condition text DEFAULT 'Good';
+ALTER TABLE public.collections ADD COLUMN IF NOT EXISTS is_complete boolean DEFAULT false;
+ALTER TABLE public.collections ADD COLUMN IF NOT EXISTS player_slots jsonb DEFAULT '[]'::jsonb;
+
+-- 3. team_players - generated squads
+CREATE TABLE IF NOT EXISTS public.team_players (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  collection_id uuid REFERENCES public.collections(id) ON DELETE CASCADE,
+  team_id uuid REFERENCES public.teams(id) ON DELETE SET NULL,
+  slot_index integer NOT NULL,
+  is_substitute boolean DEFAULT false,
+  player_name text,
+  squad_number integer,
+  position text,
+  specific_position text,
+  stat_pace integer DEFAULT 50,
+  stat_shooting integer DEFAULT 50,
+  stat_passing integer DEFAULT 50,
+  stat_dribbling integer DEFAULT 50,
+  stat_tackling integer DEFAULT 50,
+  stat_heading integer DEFAULT 50,
+  stat_crossing integer DEFAULT 50,
+  stat_vision integer DEFAULT 50,
+  stat_technique integer DEFAULT 50,
+  stat_positioning integer DEFAULT 50,
+  stat_strength integer DEFAULT 50,
+  stat_stamina integer DEFAULT 50,
+  stat_aggression integer DEFAULT 50,
+  stat_composure integer DEFAULT 50,
+  stat_set_pieces integer DEFAULT 50,
+  stat_bravery integer DEFAULT 50,
+  stat_handling integer DEFAULT 50,
+  stat_reflexes integer DEFAULT 50,
+  stat_kicking integer DEFAULT 50,
+  stat_one_on_ones integer DEFAULT 50,
+  stat_aerial_reach integer DEFAULT 50,
+  stat_communication integer DEFAULT 50,
+  stat_fatigue integer DEFAULT 0,
+  overall_rating integer DEFAULT 50,
+  created_at timestamptz DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS team_players_collection_idx ON public.team_players (collection_id);
+ALTER TABLE public.team_players ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "team_players_select" ON public.team_players;
+CREATE POLICY "team_players_select" ON public.team_players FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.collections c WHERE c.id = team_players.collection_id AND c.user_id = auth.uid()));
+DROP POLICY IF EXISTS "team_players_all" ON public.team_players;
+CREATE POLICY "team_players_all" ON public.team_players FOR ALL TO authenticated USING (EXISTS (SELECT 1 FROM public.collections c WHERE c.id = team_players.collection_id AND c.user_id = auth.uid())) WITH CHECK (EXISTS (SELECT 1 FROM public.collections c WHERE c.id = team_players.collection_id AND c.user_id = auth.uid()));
