@@ -38,7 +38,6 @@ export default function GameArena() {
   const intervalRef = useRef(null);
   const awaitingTimerRef = useRef(null);
   const realtimeMgrRef = useRef(null);
-  const realtimeMgrRef = useRef(null);
 
   // Start match
   const startMatch = useCallback(() => {
