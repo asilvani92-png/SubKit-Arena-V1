@@ -1,0 +1,15 @@
+{
+  "$schema": "https://app.kilo.ai/config.json",
+  "marketplace": {
+    "sources": [
+      {
+        "name": "kilo-marketplace",
+        "path": "./kilo-marketplace"
+      }
+    ]
+  },
+  "skills": {
+    "paths": [
+      ".agents/skills"
+    ]
+ 
