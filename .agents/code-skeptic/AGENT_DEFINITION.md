@@ -15,7 +15,7 @@ permission:
     "*.mdc": allow
     "*.mdx": allow
   bash: allow
-  mcp: allow
+  mcp: deny
   question: allow
 ---
 

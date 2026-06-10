@@ -11,7 +11,7 @@ permission:
   read: allow
   edit: allow
   bash: allow
-  mcp: allow
+  mcp:  deny
   question: allow
 ---
 
